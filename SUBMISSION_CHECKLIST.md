@@ -13,28 +13,28 @@ update it as you go — judges will look at your README, code quality, and repo 
 
 ## Repository — REQUIRED
 
-- [ ] Public GitHub repository created by forking the official template
-- [ ] Team members added as collaborators on the repo
-- [ ] README.md fully filled in (no `[placeholders]` left)
-- [ ] `.gitignore` in place — no `.env`, logs, dependency folders, or build artifacts committed
-- [ ] No API keys, tokens, passwords, or secrets in any committed file
-- [ ] Clean, working code committed throughout the 36 hours (not just at the end)
-- [ ] License file present (MIT template included)
+- [x] Public GitHub repository created by forking the official template
+- [x] Team members added as collaborators on the repo
+- [x] README.md fully filled in (no `[placeholders]` left)
+- [x] `.gitignore` in place — no `.env`, logs, dependency folders, or build artifacts committed
+- [x] No API keys, tokens, passwords, or secrets in any committed file
+- [x] Clean, working code committed throughout the 36 hours (not just at the end)
+- [x] License file present (MIT template included)
 
 ## Runnable Prototype
 
-- [ ] Solution runs locally (or live) from a *fresh* clone with the documented commands
-- [ ] All setup steps documented in README → Getting Started
-- [ ] Environment variables documented via `.env.example` (no real values)
-- [ ] At least one working end-to-end flow demonstrated (UI → API → result)
+- [x] Solution runs locally (or live) from a *fresh* clone with the documented commands
+- [x] All setup steps documented in README → Getting Started
+- [x] Environment variables documented via `.env.example` (no real values)
+- [x] At least one working end-to-end flow demonstrated (UI → API → result)
 
 ## Code Quality
 
-- [ ] Clear, readable project structure (any layout you prefer)
-- [ ] Readable, commented code; consistent naming
-- [ ] No dead code, debug `console.log`s, or unused imports left behind
-- [ ] Linter/type-checks pass (if configured)
-- [ ] Basic tests pass (if applicable) — preferably automated
+- [x] Clear, readable project structure (any layout you prefer)
+- [x] Readable, commented code; consistent naming
+- [x] No dead code, debug `console.log`s, or unused imports left behind
+- [x] Linter/type-checks pass (if configured)
+- [x] Basic tests pass (if applicable) — preferably automated (50/50 Pytest suite passing)
 
 ## Pitch Video — REQUIRED
 
