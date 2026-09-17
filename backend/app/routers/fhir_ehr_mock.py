@@ -10,6 +10,7 @@ import difflib
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 
 from ..models.fhir import (
     Coding,
@@ -27,8 +28,24 @@ from ..models.fhir import (
     BundleEntrySearch,
     CapabilityStatement,
 )
+from ..services.concept_map import terminology_engine
 
 router = APIRouter()
+
+
+class TranslateRequest(BaseModel):
+    """Request body for the FHIR ConceptMap $translate operation."""
+    system: str = Field(..., description="Source terminology system URI of the code to translate")
+    code: str = Field(..., description="Source code to translate")
+    target: Optional[str] = Field(None, description="Target value set/system URI (informational, engine is single-target)")
+
+
+class EvaluateRisksRequest(BaseModel):
+    """Request body for the Patient $evaluate-risks operation."""
+    procedureCode: Optional[str] = Field(None, description="Planned dental procedure code, e.g. CDT D7140 (Extraction)")
+    procedureSystem: Optional[str] = Field(
+        "http://www.ada.org/cdt", description="Terminology system for the procedure code (default CDT)"
+    )
 
 # Data file path
 DATA_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "synthetic_ehr.json")
@@ -522,3 +539,65 @@ async def list_observations(
         results.append(obs)
 
     return results
+
+
+@router.post("/ConceptMap/$translate")
+async def translate_concept(body: TranslateRequest):
+    """
+    HL7 FHIR R4 ConceptMap $translate operation.
+    Translates a single coded medical concept (ICD-10-CM, SNOMED-CT, or RxNorm) into
+    dental clinical alert concept(s) using the medical-to-dental-contraindications ConceptMap.
+    """
+    return terminology_engine.translate_concept(body.system, body.code)
+
+
+@router.post("/Patient/{patient_id}/$evaluate-risks")
+async def evaluate_patient_risks(patient_id: str, body: Optional[EvaluateRisksRequest] = None):
+    """
+    Semantic dental risk evaluation for a patient.
+    Retrieves the patient's active conditions, medications, and allergies, translates
+    them via the ConceptMap terminology engine, and returns synthesized dental alerts
+    (including multi-factor hemorrhage-risk escalation and prophylaxis/allergy conflicts).
+    An optional planned dental procedure code (e.g. CDT D7140 Extraction) may be supplied
+    for context in the response.
+    """
+    norm_id = _normalize_ref_id(patient_id).lower()
+
+    matched_patient = None
+    all_matching_keys = [norm_id]
+    for p in FHIR_STORE["Patient"]:
+        pid = p.get("id", "").lower()
+        mrns = [ident.get("value", "").lower() for ident in p.get("identifier", [])]
+        if norm_id == pid or norm_id in mrns:
+            matched_patient = p
+            all_matching_keys.append(pid)
+            all_matching_keys.extend(mrns)
+            break
+
+    if not matched_patient:
+        raise HTTPException(status_code=404, detail=f"Patient '{patient_id}' not found for $evaluate-risks.")
+
+    def _matches_patient(ref_str: str) -> bool:
+        if not ref_str:
+            return False
+        clean = _normalize_ref_id(ref_str).lower()
+        return any(k == clean for k in all_matching_keys)
+
+    conditions = [c for c in FHIR_STORE["Condition"] if _matches_patient(c.get("subject", {}).get("reference", ""))]
+    medications = [m for m in FHIR_STORE["MedicationRequest"] if _matches_patient(m.get("subject", {}).get("reference", ""))]
+    allergies = [a for a in FHIR_STORE["AllergyIntolerance"] if _matches_patient(a.get("patient", {}).get("reference", ""))]
+
+    alerts = terminology_engine.synthesize_patient_risk(conditions, medications, allergies)
+
+    procedure_code = body.procedureCode if body else None
+    procedure_system = (body.procedureSystem if body else None) or "http://www.ada.org/cdt"
+
+    return {
+        "resourceType": "Parameters",
+        "patientId": matched_patient["id"],
+        "procedure": (
+            {"system": procedure_system, "code": procedure_code} if procedure_code else None
+        ),
+        "alertCount": len(alerts),
+        "alerts": alerts,
+    }

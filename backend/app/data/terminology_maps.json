@@ -1,0 +1,90 @@
+{
+  "resourceType": "ConceptMap",
+  "id": "medical-to-dental-contraindications",
+  "url": "http://carestack.com/fhir/ConceptMap/medical-to-dental-contraindications",
+  "version": "1.0.0",
+  "name": "MedicalToDentalContraindications",
+  "title": "Medical Diagnoses, Medications, and Allergies to Dental Clinical Alerts",
+  "status": "active",
+  "experimental": false,
+  "date": "2026-09-18",
+  "publisher": "Medical-Dental Interoperability Node (MDIN)",
+  "description": "Translates ICD-10-CM, SNOMED-CT, and RxNorm coded medical conditions, medications, and allergies into dental clinical decision support alerts using FHIR R4 $translate operation semantics.",
+  "sourceUri": "http://hl7.org/fhir/sid/icd-10-cm-and-snomed",
+  "targetUri": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
+  "group": [
+    {
+      "source": "http://hl7.org/fhir/sid/icd-10-cm",
+      "target": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
+      "element": [
+        {
+          "code": "I48.91",
+          "display": "Unspecified atrial fibrillation",
+          "target": [
+            {
+              "code": "BLEED_RISK_ELEVATED",
+              "display": "Elevated bleeding risk, evaluate anticoagulants",
+              "equivalence": "relatedto"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source": "http://www.nlm.nih.gov/research/umls/rxnorm",
+      "target": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
+      "element": [
+        {
+          "code": "855332",
+          "display": "Warfarin Sodium 5 MG Oral Tablet",
+          "target": [
+            {
+              "code": "ACTIVE_ANTICOAGULANT",
+              "display": "Active anticoagulant therapy, mandatory INR monitoring",
+              "equivalence": "equivalent"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source": "http://snomed.info/sct",
+      "target": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
+      "element": [
+        {
+          "code": "315215002",
+          "display": "Prosthetic cardiac valve present",
+          "target": [
+            {
+              "code": "AHA_PROPHYLAXIS_REQUIRED",
+              "display": "Mandates AHA antibiotic prophylaxis protocol",
+              "equivalence": "wider"
+            }
+          ]
+        },
+        {
+          "code": "70618001",
+          "display": "Allergy to penicillin",
+          "target": [
+            {
+              "code": "CONTRAINDICATION_PENICILLIN",
+              "display": "Avoid Amoxicillin; suggest Clindamycin / Azithromycin",
+              "equivalence": "equivalent"
+            }
+          ]
+        },
+        {
+          "code": "73211009",
+          "display": "Diabetes mellitus type 2",
+          "target": [
+            {
+              "code": "DELAYED_HEALING_RISK",
+              "display": "Periodontal impairment risk, verify recent HbA1c",
+              "equivalence": "narrower"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
