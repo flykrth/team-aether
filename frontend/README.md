@@ -1,50 +1,74 @@
-# Frontend — [Project Name]
+# Frontend — Medical-Dental Interoperability Node (MDIN)
 
-Put your web/mobile application here: user interfaces, dashboards, mobile apps,
-PWA, etc.
+Modern React + Vite + Tailwind CSS dashboard providing a unified clinical view connecting CareStack Dental Practice Management with Medical EHRs and CDS Hooks v1.0.
 
-## Stack (fill in)
+## Stack
 
-- Framework / platform: [your choice]
-- Styling: [your choice]
-- HTTP client: [your choice]
+- **Framework / Bundler**: React 18 & Vite
+- **Styling**: Tailwind CSS & PostCSS
+- **Icons**: Lucide React
+- **API Client**: Native Fetch with Vite Proxy & Configurable Base URL
+- **Dev Server Port**: `5173` (with fallback/cross-origin support for `3000`)
 
-## Local Setup (fill in)
+## Key Features
+
+1. **Interoperability Topology Monitor**: Live connection status of CareStack PMS, FHIR R4 server, and CDS Hooks engine.
+2. **Dual-Panel Clinical Record Viewer**: Side-by-side comparison of CareStack proposed dental treatment plans (CDT codes like D7140, D4341) with Medical EHR diagnoses, lab values (HbA1c, INR), and allergies.
+3. **CDS Hooks Real-Time Alerts**: Automated alert cards highlighting cross-specialty contraindications (MRONJ osteonecrosis risk, AHA antibiotic prophylaxis requirements, bleeding risks).
+4. **Interactive Endpoint Tester**: One-click REST/CDS caller allowing hackathon judges to execute live API queries against `/api/carestack`, `/api/fhir`, and `/cds-services` and view formatted JSON with response latency.
+
+## Local Setup
+
+### 1. Install Dependencies
 
 ```bash
 cd frontend
-<install frontend dependencies — command for your package manager>
-<start the frontend app>
+npm install
 ```
 
-## Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `BACKEND_URL` | Backend API base URL | `http://localhost:8000` |
-
-> Values above are illustrative examples only — replace them with your own.
-> Never commit real `.env` values — see root `.gitignore`. A starting point is
-> provided in `.env.example`.
-
-## Tests & Lint
+### 2. Configure Environment
 
 ```bash
-# Replace <commands> with the ones for your stack
-<your test command>
-<your lint command>
-<your build command>
+cp .env.example .env
 ```
 
-## Project Layout (adjust to your stack)
+### 3. Start Development Server
+
+```bash
+npm run dev
+```
+
+The frontend will run at `http://localhost:5173`.
+All requests to `/api`, `/cds-services`, and `/health` are automatically proxied to `http://localhost:8000`.
+
+### 4. Build for Production
+
+```bash
+npm run build
+npm run preview
+```
+
+## Project Layout
 
 ```
 frontend/
-├── <entry point>       # app entry point
-├── <root component>    # main app component
-├── <components/>       # reusable UI
-├── <pages/>            # route views
-├── <services/>         # API calls
-├── <config files for your tooling>
+├── index.html                     # HTML5 entrypoint
+├── package.json                   # Dependencies and scripts
+├── vite.config.js                 # Vite config + backend API proxy
+├── tailwind.config.js             # Tailwind CSS theme extension
+├── postcss.config.js              # PostCSS plugins
+├── setup.sh                       # Frontend quickstart setup script
+├── src/
+│   ├── main.jsx                   # React root render
+│   ├── App.jsx                    # Master application container
+│   ├── index.css                  # Tailwind styles
+│   ├── services/
+│   │   └── api.js                 # API client for backend endpoints
+│   └── components/
+│       ├── Navbar.jsx             # Top bar with status & docs link
+│       ├── InteroperabilityDashboard.jsx # System topology card
+│       ├── PatientRecordViewer.jsx # Dual medical/dental viewer & sync
+│       ├── CdsAlertCard.jsx       # CDS Hooks card renderer
+│       └── EndpointTester.jsx     # Live API tester for judges
 └── .env.example
 ```
