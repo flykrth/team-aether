@@ -44,6 +44,16 @@ The server will start at `http://localhost:8000`.
 - Interactive Swagger UI: `http://localhost:8000/docs`
 - ReDoc Documentation: `http://localhost:8000/redoc`
 
+### 5. Production Docker Deployment
+
+```bash
+# Build standalone backend image
+docker build -t mdin-backend ./backend
+
+# Run container exposing port 8000
+docker run -d -p 8000:8000 --name mdin-backend mdin-backend
+```
+
 ## API Endpoints Overview
 
 ### CareStack Web API V1 Endpoints (`/api/v1.0`)

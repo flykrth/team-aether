@@ -23,9 +23,10 @@
 | **Target EHRs** | **CareStack PMS** (Dental) $\leftrightarrow$ **Epic / Cerner / MEDITECH** (Medical Hospital EHRs) |
 | **Clinical Interoperability Standards** | **CareStack Web API V1** (VendorKey, AccountKey, AccountId), HL7® FHIR® R4, USCDI v5, CDS Hooks™ v1.0/v2.0, FHIR ConceptMap ($translate) |
 | **Medical Terminologies Mapped** | ICD-10-CM, SNOMED CT, RxNorm, LOINC $\rightarrow$ ADA CDT Dental Procedure Codes |
+| **Production Web UI & Gateway** | `http://localhost:80` (or `http://localhost`) · Nginx SPA & Reverse Proxy |
 | **Backend API Endpoint** | `http://localhost:8000` · [Interactive Swagger Docs](http://localhost:8000/docs) |
 | **CareStack API Endpoint** | `http://localhost:8000/api/v1.0` (Official CareStack REST Specification) |
-| **Frontend Clinical Interface** | `http://localhost:5173` (Split-Screen Chairside Chart & Federated EHR Viewer) |
+| **Development Clinical Interface** | `http://localhost:5173` (Vite Hot-Reloading Dev Server) |
 
 ---
 
@@ -36,6 +37,10 @@
 3. [Architectural Diagram](#architectural-diagram)
 4. [Regulatory Alignment & Health Policy](#regulatory-alignment--health-policy)
 5. [Step-by-Step Setup & Quickstart Guide](#step-by-step-setup--quickstart-guide)
+   - [1-Click Production Deployment (Docker & Compose)](#1-click-production-deployment-docker--compose)
+   - [Automated Deployment Helper (`deploy.sh`)](#automated-deployment-helper-deploysh)
+   - [Option A: Automated One-Click Local Setup (`setup.sh`)](#option-a-automated-one-click-local-setup)
+   - [Option B: Manual Local Setup](#option-b-manual-local-setup)
 6. [API Documentation & Sample Requests](#api-documentation--sample-requests)
 7. [Demo Guide: Clinical Patient Personas](#demo-guide-clinical-patient-personas)
 8. [Frontend Chairside Interface Guide](#frontend-chairside-interface-guide)
@@ -234,9 +239,64 @@ The ONC **Health Data, Technology, and Interoperability (HTI-1)** Final Rule est
 - **Node.js**: $\ge 18.0$ and **npm** $\ge 9.0$
 - **Operating System**: Linux, macOS, or Windows WSL2
 
+### 1-Click Production Deployment (Docker & Compose)
+
+Deploy the entire MDIN production stack—FastAPI ASGI backend, Nginx reverse proxy, and Vite React SPA—in a single command using Docker and Docker Compose.
+
+#### Prerequisites
+- **Docker Engine**: $\ge 24.0$ ([Install Docker Engine](https://docs.docker.com/engine/install/))
+- **Docker Compose**: $\ge v2.20$ (included in modern Docker Desktop or Docker Compose plugin)
+- **Available Ports**: Port `80` (Frontend & Reverse Proxy) and Port `8000` (Direct Backend API)
+
+#### Execution
+
+Execute the single standard Compose command from the project root:
+
+```bash
+docker compose up --build
+```
+
+To run in detached background mode:
+```bash
+docker compose up -d --build
+```
+
+#### Automated Deployment Helper (`deploy.sh`)
+
+For convenience, MDIN includes an automated pre-flight verification and clean-build script:
+
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+The script automatically:
+1. **Pre-flight verification**: Checks that Docker CLI, Docker Daemon, and Docker Compose are installed and operational.
+2. **Clean-cache build**: Executes `docker compose build --no-cache` to ensure clean container bundles.
+3. **Endpoint health check**: Probes `/health`, `/cds-services`, `/api/carestack/status`, and `/api/fhir/metadata` with `curl`.
+4. **Endpoint status banner**: Outputs local URLs for the chairside app, API endpoints, and interactive docs.
+
+#### Production Access & Endpoint Routing
+
+All requests on port `80` are handled by the production Nginx server, which serves the React SPA and reverse-proxies API requests to the backend container (`backend:8000`) over the isolated `mdin-network` bridge:
+
+| Service / Interface | URL | Description |
+|---|---|---|
+| **Chairside Clinical UI** | `http://localhost:80` (or `http://localhost`) | Production React SPA with client-side routing |
+| **CareStack & FHIR APIs** | `http://localhost:80/api/` | Reverse-proxied to `backend:8000/api/` |
+| **CDS Hooks Service** | `http://localhost:80/cds-services` | Discovery and clinical decision support cards |
+| **Interactive Swagger Docs** | `http://localhost:80/docs` (or `:8000/docs`) | OpenAPI interactive endpoint documentation |
+| **Health Check Telemetry** | `http://localhost:80/health` (or `:8000/health`) | Container orchestrator health probe |
+| **Direct Backend Service** | `http://localhost:8000` | FastAPI ASGI backend container |
+
+To tear down the containers:
+```bash
+docker compose down
+```
+
 ---
 
-### Option A: Automated One-Click Setup
+### Option A: Automated One-Click Local Setup (`setup.sh`)
 Run the included all-in-one setup script from the root repository:
 
 ```bash
@@ -247,7 +307,7 @@ chmod +x setup.sh
 
 ---
 
-### Option B: Manual Setup
+### Option B: Manual Local Setup
 
 #### 1. Backend Server Setup
 From the root directory:

@@ -41,11 +41,21 @@ npm run dev
 The frontend will run at `http://localhost:5173`.
 All requests to `/api`, `/cds-services`, and `/health` are automatically proxied to `http://localhost:8000`.
 
-### 4. Build for Production
+### 4. Build for Production (Node.js)
 
 ```bash
 npm run build
 npm run preview
+```
+
+### 5. Production Docker Deployment (Nginx Reverse Proxy)
+
+```bash
+# Build multi-stage production Nginx container
+docker build -t mdin-frontend ./frontend
+
+# Run container exposing port 80
+docker run -d -p 80:80 --name mdin-frontend mdin-frontend
 ```
 
 ## Project Layout
