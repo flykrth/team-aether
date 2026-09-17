@@ -27,6 +27,28 @@
               "equivalence": "relatedto"
             }
           ]
+        },
+        {
+          "code": "M81.0",
+          "display": "Age-related osteoporosis without current pathological fracture",
+          "target": [
+            {
+              "code": "MRONJ_RISK_ELEVATED",
+              "display": "Osteonecrosis of jaw risk with antiresorptive therapy",
+              "equivalence": "relatedto"
+            }
+          ]
+        },
+        {
+          "code": "E11.9",
+          "display": "Type 2 diabetes mellitus without complications",
+          "target": [
+            {
+              "code": "DELAYED_HEALING_RISK",
+              "display": "Periodontal impairment risk, verify recent HbA1c",
+              "equivalence": "narrower"
+            }
+          ]
         }
       ]
     },
@@ -81,6 +103,39 @@
               "code": "DELAYED_HEALING_RISK",
               "display": "Periodontal impairment risk, verify recent HbA1c",
               "equivalence": "narrower"
+            }
+          ]
+        },
+        {
+          "code": "44054006",
+          "display": "Type 2 diabetes mellitus",
+          "target": [
+            {
+              "code": "DELAYED_HEALING_RISK",
+              "display": "Periodontal impairment risk, verify recent HbA1c",
+              "equivalence": "narrower"
+            }
+          ]
+        },
+        {
+          "code": "64859006",
+          "display": "Osteoporosis",
+          "target": [
+            {
+              "code": "MRONJ_RISK_ELEVATED",
+              "display": "Osteonecrosis of jaw risk with antiresorptive therapy",
+              "equivalence": "relatedto"
+            }
+          ]
+        },
+        {
+          "code": "300916003",
+          "display": "Latex allergy",
+          "target": [
+            {
+              "code": "ALERT_LATEX_ALLERGY",
+              "display": "Latex allergy, requires latex-free equipment",
+              "equivalence": "equivalent"
             }
           ]
         }

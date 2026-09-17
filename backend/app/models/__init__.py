@@ -22,6 +22,17 @@ from .fhir import (
     Bundle,
     CapabilityStatement,
 )
+from .cds_hooks import (
+    CDSServiceDiscovery,
+    CDSService,
+    CDSRequest,
+    CDSSuggestionAction,
+    CDSSuggestion,
+    CDSLink,
+    CDSSource,
+    CDSCard,
+    CDSResponse,
+)
 
 __all__ = [
     "Coding",
@@ -42,4 +53,13 @@ __all__ = [
     "BundleLink",
     "Bundle",
     "CapabilityStatement",
+    "CDSServiceDiscovery",
+    "CDSService",
+    "CDSRequest",
+    "CDSSuggestionAction",
+    "CDSSuggestion",
+    "CDSLink",
+    "CDSSource",
+    "CDSCard",
+    "CDSResponse",
 ]
