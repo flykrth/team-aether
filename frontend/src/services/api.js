@@ -44,6 +44,19 @@ export const api = {
       }),
     }),
 
+  // CareStack Web API V1 Official Endpoints
+  searchCareStackV1: (searchTerm = '') =>
+    fetchJson('/api/v1.0/patients/search', {
+      method: 'POST',
+      body: JSON.stringify({ SearchTerm: searchTerm }),
+    }),
+  getCareStackV1Patient: (id) => fetchJson(`/api/v1.0/patients/${encodeURIComponent(id)}`),
+  getCareStackV1Perio: (patientId) =>
+    fetchJson(`/api/v1.0/patients/${encodeURIComponent(patientId)}/periodontal-charting`),
+  getCareStackV1Procedures: () => fetchJson('/api/v1.0/procedure-codes'),
+  getCareStackV1Locations: () => fetchJson('/api/v1.0/locations'),
+  getCareStackV1Operatories: () => fetchJson('/api/v1.0/operatories'),
+
   // FHIR R4 Medical
   getFhirMetadata: () => fetchJson('/api/fhir/metadata'),
   getFhirPatients: () => fetchJson('/api/fhir/Patient'),

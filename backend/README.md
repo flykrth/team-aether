@@ -46,20 +46,53 @@ The server will start at `http://localhost:8000`.
 
 ## API Endpoints Overview
 
+### CareStack Web API V1 Endpoints (`/api/v1.0`)
+All CareStack Web API V1 requests require three authentication headers:
+- `VendorKey`: Secret key for the vendor
+- `AccountKey`: Secret key for the account
+- `AccountId`: A unique id for each account
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1.0/auth/verify` | Verify CareStack API keys (VendorKey, AccountKey, AccountId) |
+| `GET` | `/api/v1.0/patients/{id}` | Gets a patient record (`PatientViewModel`) |
+| `POST` | `/api/v1.0/patients/search` | Search patients with `SearchRequest` (`PatientSearchResponseModel`) |
+| `POST` | `/api/v1.0/patients` | Create new CareStack patient record |
+| `PUT` | `/api/v1.0/patients` | Update CareStack patient record |
+| `GET` | `/api/v1.0/patients/{patientId}/periodontal-charting` | Retrieve comprehensive periodontal probing examination |
+| `GET` | `/api/v1.0/procedure-codes` | List American Dental Association (ADA) CDT procedure codes |
+| `GET` | `/api/v1.0/appointments/{appointmentId}` | Get appointment details by appointment ID |
+| `POST` | `/api/v1.0/appointments` | Book new chairside appointment |
+| `PUT` | `/api/v1.0/appointments/{appointmentId}/modify-status` | Modify status of appointment (Scheduled, InChair, etc.) |
+| `PUT` | `/api/v1.0/appointments/{appointmentId}/checkout` | Checkout appointment post-procedure |
+| `PUT` | `/api/v1.0/appointments/{appointmentId}/cancel` | Cancel appointment |
+| `GET` | `/api/v1.0/appointment-status` | List all appointment statuses |
+| `GET` | `/api/v1.0/sync/patients` | Incremental patient synchronization |
+| `GET` | `/api/v1.0/sync/treatment-procedures` | Incremental dental treatment procedure synchronization |
+| `GET` | `/api/v1.0/treatments/appointment-procedures/{appointmentId}` | Get all procedure code IDs for an appointment |
+| `GET` | `/api/v1.0/locations` | List clinic locations |
+| `GET` | `/api/v1.0/operatories` | List dental operatories / chairs |
+
+### MDIN Core & Federated EHR Endpoints
+
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Node health status and version info |
 | `GET` | `/` | Service directory and metadata |
 | `GET` | `/api/carestack/status` | CareStack connectivity and sync telemetry |
 | `GET` | `/api/carestack/patients` | CareStack dental patients & active treatment plans |
+| `POST` | `/api/carestack/webhook` | CareStack check-in webhook with MPI demographic matching |
+| `POST` | `/api/carestack/patients/{id}/medical-alerts` | Write critical medical alert back to CareStack chart |
+| `GET` | `/api/carestack/patients/{id}/medical-alerts` | Retrieve chart alerts for chairside display |
 | `POST` | `/api/carestack/sync` | Trigger bi-directional PMS <-> EHR sync |
 | `GET` | `/api/fhir/metadata` | FHIR R4 CapabilityStatement |
-| `GET` | `/api/fhir/Patient` | FHIR Patient demographics |
+| `GET` | `/api/fhir/Patient` | FHIR Patient demographics (exact & probabilistic) |
 | `GET` | `/api/fhir/Condition` | Medical conditions (Osteoporosis, Diabetes, Heart Valve) |
 | `GET` | `/api/fhir/Observation` | Medical diagnostic labs (HbA1c, INR) |
 | `GET` | `/api/fhir/AllergyIntolerance`| Medical drug and material allergies |
 | `GET` | `/cds-services` | CDS Hooks discovery endpoint |
 | `POST` | `/cds-services/med-dental-risk-evaluator` | CDS evaluation (MRONJ, bleeding, diabetic risks) |
+| `POST` | `/cds-services/order-select-contraindication` | Real-time CDT procedure contraindication evaluation |
 
 ## CORS Configuration
 

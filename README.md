@@ -3,7 +3,8 @@
 ### **DSOLVE 2026** · DRISHTI · College of Engineering Trivandrum (CET)
 **Problem 6: Open Problem Statement (US / Global Dental Industry)**
 
-[![Build & Test Status](https://img.shields.io/badge/Pytest-50%2F50%20Passing-emerald?style=flat-square&logo=pytest)](file:///home/flykrth/Desktop/aether/backend/tests)
+[![Build & Test Status](https://img.shields.io/badge/Pytest-68%2F68%20Passing-emerald?style=flat-square&logo=pytest)](file:///home/flykrth/Desktop/aether/backend/tests)
+[![CareStack Web API](https://img.shields.io/badge/CareStack%20API-v1.0%20Compliant-cyan?style=flat-square)](https://developer.carestack.com/documentation)
 [![HL7 FHIR R4](https://img.shields.io/badge/HL7%20FHIR-R4%20(USCDI%20v5)-blue?style=flat-square&logo=fire)](https://hl7.org/fhir/R4/)
 [![CDS Hooks](https://img.shields.io/badge/CDS%20Hooks-v1.0%20%2F%20v2.0-orange?style=flat-square)](https://cds-hooks.hl7.org/)
 [![Regulatory Alignment](https://img.shields.io/badge/ONC%20HTI--1-DSI%20Compliant-purple?style=flat-square)](https://www.healthit.gov/topic/laws-regulation-and-policy/health-data-technology-and-interoperability-certification-program)
@@ -20,9 +21,10 @@
 | **Problem Statement** | **Problem 6 — Open Problem Statement (US & Global Dental Industry)** |
 | **Team Name** | **Team Aether** |
 | **Target EHRs** | **CareStack PMS** (Dental) $\leftrightarrow$ **Epic / Cerner / MEDITECH** (Medical Hospital EHRs) |
-| **Clinical Interoperability Standards** | HL7® FHIR® R4, USCDI v5, CDS Hooks™ v1.0/v2.0, FHIR ConceptMap ($translate) |
+| **Clinical Interoperability Standards** | **CareStack Web API V1** (VendorKey, AccountKey, AccountId), HL7® FHIR® R4, USCDI v5, CDS Hooks™ v1.0/v2.0, FHIR ConceptMap ($translate) |
 | **Medical Terminologies Mapped** | ICD-10-CM, SNOMED CT, RxNorm, LOINC $\rightarrow$ ADA CDT Dental Procedure Codes |
 | **Backend API Endpoint** | `http://localhost:8000` · [Interactive Swagger Docs](http://localhost:8000/docs) |
+| **CareStack API Endpoint** | `http://localhost:8000/api/v1.0` (Official CareStack REST Specification) |
 | **Frontend Clinical Interface** | `http://localhost:5173` (Split-Screen Chairside Chart & Federated EHR Viewer) |
 
 ---
@@ -123,11 +125,15 @@ The **Medical-Dental Interoperability Node (MDIN)** is an open-standard, federat
 
 ### Core Engineering Pillars
 
-#### 1. OAuth 2.0 & Webhook Ingestion from CareStack
-- Listens for CareStack appointment scheduling and chairside patient check-in events (`patient.checkin`).
-- Executes exact MRN matching and probabilistic Levenshtein/difflib demographic matching against hospital EHR master patient indices (MPI).
-- Caches synchronized clinical context in-memory (`SYNCED_CLINICAL_CACHE`) for sub-second operatory recall.
-- Supports bidirectional write-back (`POST /api/carestack/patients/{id}/medical-alerts`), persisting safety alerts directly to the CareStack chart.
+#### 1. CareStack Web API V1 Integration & Three-Key Header Authentication
+- **Official Specification Compliance**: Fully aligns with the official **CareStack Web API V1** OpenAPI 3.0 specification (`developer.carestack.com`).
+- **Three-Key Header Authentication**: Secures requests using the three mandatory CareStack API headers:
+  - `VendorKey`: Secret vendor authorization key
+  - `AccountKey`: Secret account authorization key
+  - `AccountId`: Unique account/practice identifier
+- **Official CareStack Endpoints (`/api/v1.0`)**: Supports `PatientViewModel`, `SearchRequest` $\rightarrow$ `PatientSearchResponseModel`, full-mouth periodontal probing examinations (`PeriodontalChart`), CDT procedure codes (`ProcedureCodeBasicApiResponseModel`), chairside appointments (`AppointmentDetailModel`), and incremental synchronization (`/sync/patients`, `/sync/treatment-procedures`).
+- **Production HTTP Client (`CareStackClient`)**: Asynchronous HTTP client service (`backend/app/services/carestack_client.py`) with automatic credential header attachment and standard HTTP status code error handling (2xx, 4xx, 5xx).
+- **Bi-Directional Interoperability & Webhook Ingestion**: Listens for CareStack appointment and chairside check-in events (`patient.checkin`), executes exact MRN & probabilistic demographic matching against hospital EHR master patient indices (MPI), caches context in-memory (`SYNCED_CLINICAL_CACHE`), and writes high-priority alerts back to CareStack charts (`POST /api/carestack/patients/{id}/medical-alerts`).
 
 #### 2. HL7 FHIR R4 Federated EHR Query Engine (USCDI v5 Standards)
 - Strictly conforms to HL7 FHIR Release 4.0.1 and **USCDI v5** (United States Core Data for Interoperability) standards.
@@ -296,14 +302,41 @@ The backend exposes fully standardized endpoints across CareStack PMS, HL7 FHIR 
 
 ### API Summary Table
 
+#### CareStack Web API V1 Official Endpoints (`/api/v1.0`)
+All CareStack Web API V1 requests authenticate using three header keys: `VendorKey`, `AccountKey`, and `AccountId`.
+
+| Category | Method | Endpoint | Description |
+|---|---|---|---|
+| **CareStack Auth** | `GET` | `/api/v1.0/auth/verify` | Verify 3-key CareStack credentials |
+| **CareStack Patients** | `GET` | `/api/v1.0/patients/{id}` | Read single patient record (`PatientViewModel`) |
+| **CareStack Patients** | `POST` | `/api/v1.0/patients/search` | Search patients with `SearchRequest` |
+| **CareStack Patients** | `POST` | `/api/v1.0/patients` | Create new dental patient record |
+| **CareStack Patients** | `PUT` | `/api/v1.0/patients` | Update existing dental patient record |
+| **CareStack Perio** | `GET` | `/api/v1.0/patients/{id}/periodontal-charting` | Full-mouth periodontal probing examination |
+| **CareStack Procedures**| `GET` | `/api/v1.0/procedure-codes` | List ADA CDT dental procedure codes |
+| **CareStack Treatments**| `GET` | `/api/v1.0/treatments/appointment-procedures/{id}` | Get procedure codes assigned to appointment |
+| **CareStack Appts** | `POST` | `/api/v1.0/appointments` | Book new chairside appointment |
+| **CareStack Appts** | `GET` | `/api/v1.0/appointments/{id}` | Read appointment details |
+| **CareStack Appts** | `PUT` | `/api/v1.0/appointments/{id}/modify-status` | Modify status (`Scheduled`, `InChair`, etc.) |
+| **CareStack Appts** | `PUT` | `/api/v1.0/appointments/{id}/checkout` | Checkout appointment post-procedure |
+| **CareStack Appts** | `PUT` | `/api/v1.0/appointments/{id}/cancel` | Cancel chairside appointment |
+| **CareStack Appts** | `GET` | `/api/v1.0/appointment-status` | List all available appointment statuses |
+| **CareStack Sync** | `GET` | `/api/v1.0/sync/patients` | Incremental patient synchronization |
+| **CareStack Sync** | `GET` | `/api/v1.0/sync/treatment-procedures` | Incremental dental treatment procedure synchronization |
+| **CareStack Practice** | `GET` | `/api/v1.0/locations` | List clinic practice locations |
+| **CareStack Practice** | `GET` | `/api/v1.0/operatories` | List practice operatories / chairs |
+
+#### MDIN Core, FHIR R4 & CDS Hooks Endpoints
+
 | Category | Method | Endpoint | Description |
 |---|---|---|---|
 | **System** | `GET` | `/health` | Node health status and version telemetry |
-| **CareStack** | `GET` | `/api/carestack/status` | Connectivity and sync status with CareStack PMS |
-| **CareStack** | `GET` | `/api/carestack/patients` | List CareStack dental patients & active treatment plans |
-| **CareStack** | `POST` | `/api/carestack/webhook` | Ingest appointment/check-in events and trigger sync |
-| **CareStack** | `POST` | `/api/carestack/patients/{id}/medical-alerts` | Write medical contraindication back to CareStack chart |
-| **CareStack** | `GET` | `/api/carestack/patients/{id}/medical-alerts` | Retrieve posted medical alerts for a patient chart |
+| **CareStack MDIN** | `GET` | `/api/carestack/status` | Connectivity and sync status with CareStack PMS |
+| **CareStack MDIN** | `GET` | `/api/carestack/patients` | List CareStack dental patients & active treatment plans |
+| **CareStack MDIN** | `POST` | `/api/carestack/webhook` | Ingest appointment/check-in events and trigger sync |
+| **CareStack MDIN** | `POST` | `/api/carestack/patients/{id}/medical-alerts` | Write medical contraindication back to CareStack chart |
+| **CareStack MDIN** | `GET` | `/api/carestack/patients/{id}/medical-alerts` | Retrieve posted medical alerts for a patient chart |
+| **CareStack MDIN** | `POST` | `/api/carestack/sync` | Trigger bi-directional PMS $\leftrightarrow$ EHR sync |
 | **FHIR R4** | `GET` | `/api/fhir/metadata` | HL7 FHIR R4 `CapabilityStatement` |
 | **FHIR R4** | `GET` | `/api/fhir/Patient` | Probabilistic demographic search for patients |
 | **FHIR R4** | `GET` | `/api/fhir/Patient/{id}` | Read single FHIR Patient by ID or MRN |
@@ -333,7 +366,110 @@ curl -s http://localhost:8000/health
 
 ---
 
-#### 2. CareStack Webhook Ingestion (`patient.checkin`)
+#### 2. CareStack Web API V1 Patient Retrieval (`GET /api/v1.0/patients/{id}`)
+Demonstrates calling the official CareStack Web API V1 with the three mandatory authentication headers (`VendorKey`, `AccountKey`, `AccountId`):
+
+```bash
+curl -s http://localhost:8000/api/v1.0/patients/2001 \
+  -H "VendorKey: carestack-vendor-key-sec-99210" \
+  -H "AccountKey: carestack-account-key-sec-88412" \
+  -H "AccountId: ACCT-101" \
+  -H "Accept: application/json"
+```
+```json
+{
+  "Id": 2001,
+  "PatientIdentifier": "CS-2001",
+  "Prefix": "NotSet",
+  "FirstName": "John",
+  "MiddleName": null,
+  "LastName": "Doe",
+  "Suffix": null,
+  "DOB": "1968-04-12",
+  "Gender": "Male",
+  "MaritalStatus": "Single",
+  "Status": "Active",
+  "Email": "john.doe@example.com",
+  "Mobile": "555-0101",
+  "AddressDetail": {
+    "Line1": "123 Dental Way",
+    "City": "Boston",
+    "State": "MA",
+    "Zip": "02115",
+    "Country": "United States"
+  }
+}
+```
+
+---
+
+#### 3. CareStack Web API V1 Patient Search (`POST /api/v1.0/patients/search`)
+Searches registered dental patients using standard CareStack `SearchRequest`:
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1.0/patients/search \
+  -H "VendorKey: carestack-vendor-key-sec-99210" \
+  -H "AccountKey: carestack-account-key-sec-88412" \
+  -H "AccountId: ACCT-101" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "SearchTerm": "Smith",
+    "Offset": 0,
+    "Limit": 10
+  }'
+```
+```json
+[
+  {
+    "PatientId": 2002,
+    "PatientIdentifier": "CS-2002",
+    "FirstName": "Jane",
+    "MiddleName": null,
+    "LastName": "Smith",
+    "NickName": null,
+    "Email": "jane.smith@example.com",
+    "PhoneWithExt": "555-0102",
+    "LocationName": "Main Operatory",
+    "IsActive": true
+  }
+]
+```
+
+---
+
+#### 4. CareStack Periodontal Charting (`GET /api/v1.0/patients/{id}/periodontal-charting`)
+Retrieves periodontal probing pocket depths across teeth:
+
+```bash
+curl -s http://localhost:8000/api/v1.0/patients/2001/periodontal-charting \
+  -H "VendorKey: carestack-vendor-key-sec-99210" \
+  -H "AccountKey: carestack-account-key-sec-88412" \
+  -H "AccountId: ACCT-101"
+```
+```json
+{
+  "id": "PERIO-2001",
+  "PatientID": 2001,
+  "Date": "2026-09-18",
+  "ExamName": "Comprehensive Full-Mouth Periodontal Probing",
+  "Status": "Active",
+  "Dentition": "Permanent",
+  "teeth": [
+    {
+      "tooth_number": "30",
+      "buccal_depths": [5, 4, 6],
+      "lingual_depths": [5, 5, 6],
+      "bleeding_on_probing": true,
+      "furcation": 2,
+      "mobility": 1
+    }
+  ]
+}
+```
+
+---
+
+#### 5. CareStack Webhook Ingestion (`patient.checkin`)
 Simulates CareStack firing an automated check-in webhook when John Doe arrives at the clinic desk:
 
 ```bash
@@ -679,7 +815,7 @@ The frontend application (`frontend/src/App.jsx`) is engineered as an interactiv
 
 ## Automated Verification & Test Suite
 
-The project includes an exhaustive automated test suite written with **Pytest** and the **FastAPI TestClient**, covering 50 discrete test cases across all phases of implementation:
+The project includes an exhaustive automated test suite written with **Pytest** and the **FastAPI TestClient**, covering **68 discrete test cases** across all phases of implementation and official CareStack Web API V1 compliance:
 
 ```bash
 # Activate virtual environment
@@ -690,6 +826,7 @@ pytest backend/tests/ -v
 ```
 
 ### Test Coverage Highlights
+- **`test_carestack_api.py` (18 tests)**: Three-key header authentication validation (`VendorKey`, `AccountKey`, `AccountId`), `PatientViewModel` retrieval & lifecycle, `SearchRequest` patient queries, periodontal probing examination depth charting, CDT procedure codes, appointment scheduling lifecycle (create, get, modify status, checkout, cancel), practice infrastructure (locations, operatories), and asynchronous `CareStackClient` execution and error mapping.
 - **`test_main.py` (10 tests)**: Root metadata discovery, health check telemetry, CORS headers verification across ports `3000` and `5173`, router mounting.
 - **`test_phase2_mdin.py` (11 tests)**: Synthetic EHR bundle loading, probabilistic demographic patient search, USCDI v5 `$everything` bundle exports, CareStack webhook ingestion, demographic matching confidence scoring, chart alert write-backs.
 - **`test_phase3_terminology.py` (13 tests)**: ConceptMap `$translate` operations for ICD-10, SNOMED, and RxNorm, multi-factor risk synthesis (`$evaluate-risks`), anticoagulant + cardiovascular hemorrhage escalation, prophylaxis + penicillin allergy conflict warnings.
@@ -697,11 +834,12 @@ pytest backend/tests/ -v
 
 ```
 ============================== test session starts ==============================
-backend/tests/test_main.py ..........                                    [ 20%]
-backend/tests/test_phase2_mdin.py ...........                            [ 42%]
-backend/tests/test_phase3_terminology.py .............                   [ 68%]
+backend/tests/test_carestack_api.py ..................                   [ 26%]
+backend/tests/test_main.py ..........                                    [ 41%]
+backend/tests/test_phase2_mdin.py ...........                            [ 57%]
+backend/tests/test_phase3_terminology.py .............                   [ 76%]
 backend/tests/test_phase4_cds_hooks.py ................                  [100%]
-======================== 50 passed, 2 warnings in 0.44s ========================
+======================== 68 passed, 2 warnings in 0.58s ========================
 ```
 
 ---

@@ -36,8 +36,11 @@ try:
             "http://127.0.0.1:5173",
         ]
 
-        # CareStack Integration
-        CARESTACK_BASE_URL: str = "https://api.carestack.com/v1"
+        # CareStack Web API V1 Authentication & Integration
+        CARESTACK_BASE_URL: str = "https://brightsmiles.carestack.com"
+        CARESTACK_VENDOR_KEY: str = "carestack-vendor-key-sec-99210"
+        CARESTACK_ACCOUNT_KEY: str = "carestack-account-key-sec-88412"
+        CARESTACK_ACCOUNT_ID: str = "ACCT-101"
         CARESTACK_API_KEY: str = "mock-carestack-api-key"
         CARESTACK_PRACTICE_ID: str = "PRACTICE-101"
 
@@ -69,7 +72,10 @@ except ImportError:
             "http://127.0.0.1:5173",
         ]
 
-        CARESTACK_BASE_URL: str = os.getenv("CARESTACK_BASE_URL", "https://api.carestack.com/v1")
+        CARESTACK_BASE_URL: str = os.getenv("CARESTACK_BASE_URL", "https://brightsmiles.carestack.com")
+        CARESTACK_VENDOR_KEY: str = os.getenv("CARESTACK_VENDOR_KEY", "carestack-vendor-key-sec-99210")
+        CARESTACK_ACCOUNT_KEY: str = os.getenv("CARESTACK_ACCOUNT_KEY", "carestack-account-key-sec-88412")
+        CARESTACK_ACCOUNT_ID: str = os.getenv("CARESTACK_ACCOUNT_ID", "ACCT-101")
         CARESTACK_API_KEY: str = os.getenv("CARESTACK_API_KEY", "mock-carestack-api-key")
         CARESTACK_PRACTICE_ID: str = os.getenv("CARESTACK_PRACTICE_ID", "PRACTICE-101")
 

@@ -1,16 +1,42 @@
 """
-CareStack Dental Practice Management System (PMS) Mock Router mounted at /api/carestack.
-Simulates CareStack appointment & check-in webhooks, demographic resolution against FHIR EHR,
-in-memory clinical context caching, dental patient registration, and chart medical-alert writebacks.
+CareStack Dental Practice Management System (PMS) Web API V1 & Simulator.
+Implements the official CareStack Web API V1 specification from developer.carestack.com.
+Supports:
+1. Three-key header authentication: VendorKey, AccountKey, AccountId.
+2. Official CareStack V1 endpoints:
+   - /patients, /patients/{id}, /patients/search, /patients/{id}/periodontal-charting
+   - /procedure-codes, /treatments/appointment-procedures/{appointmentId}
+   - /appointments, /appointments/{appointmentId}, /modify-status, /checkout, /cancel
+   - /sync/patients, /sync/treatment-procedures
+   - /locations, /operatories, /appointment-status
+3. MDIN Interoperability bridges:
+   - /webhook (Appointment / check-in demographic resolution against FHIR EHR)
+   - /patients/{id}/medical-alerts (Chart alert writebacks)
+   - /cache/{patient_id}, /status, /sync
 """
 
 import uuid
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Query, Body, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Query, Header, Request, status
 from pydantic import BaseModel, Field
 
 from ..schemas.carestack import (
+    PatientViewModel,
+    OptionalAddressDetailModel,
+    SearchRequest,
+    PatientSearchResponseModel,
+    PagedResultsOfPatientViewModel,
+    ProcedureCodeBasicApiResponseModel,
+    PeriodontalChart,
+    PerioMeasurement,
+    AppointmentDetailModel,
+    AppointmentProviderModel,
+    AppointmentStatusExternalModel,
+    LocationDetailModel,
+    OperatoryDetail,
+    TreatmentProcedureSyncModel,
+    Surface,
     CareStackPatient,
     DentalProcedure,
     CareStackSyncRequest,
@@ -21,59 +47,150 @@ from .fhir_ehr_mock import FHIR_STORE, _calculate_similarity, _normalize_ref_id
 
 router = APIRouter()
 
-# In-memory synchronized clinical context cache
-# Key: CareStack Patient ID -> Clinical Context & FHIR Bundle
-SYNCED_CLINICAL_CACHE: Dict[str, Dict[str, Any]] = {}
+# =====================================================================
+# In-Memory Storage & Clinical Context Caches
+# =====================================================================
 
-# In-memory medical alerts chart write-back store
-# Key: CareStack Patient ID -> List of Medical Alerts
+SYNCED_CLINICAL_CACHE: Dict[str, Dict[str, Any]] = {}
 PATIENT_MEDICAL_ALERTS: Dict[str, List[Dict[str, Any]]] = {}
 
+# =====================================================================
+# Authentication Helper for CareStack Web API V1
+# =====================================================================
 
-class WebhookPatientDemographics(BaseModel):
-    """Demographics passed within a CareStack webhook event."""
-    id: str = Field(..., description="CareStack internal patient identifier, e.g. CS-2001")
-    first_name: str = Field(..., description="Patient given name")
-    last_name: str = Field(..., description="Patient family name")
-    birth_date: str = Field(..., description="Birth date in YYYY-MM-DD format")
-    gender: Optional[str] = Field(None, description="male | female | other")
-    mrn: Optional[str] = Field(None, description="External Medical Record Number if known")
-    email: Optional[str] = None
-    phone: Optional[str] = None
+def verify_carestack_credentials(
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+    enforce: bool = False,
+) -> Dict[str, str]:
+    """
+    Validates CareStack three-key API authentication headers:
+    VendorKey, AccountKey, AccountId.
+    If provided or if enforcement is active, credentials must match configured keys.
+    """
+    # If any key is provided, validate all 3
+    if vendorkey is not None or accountkey is not None or accountid is not None or enforce:
+        valid_vendor = (vendorkey == settings.CARESTACK_VENDOR_KEY)
+        valid_account_key = (accountkey == settings.CARESTACK_ACCOUNT_KEY)
+        valid_account_id = (accountid == settings.CARESTACK_ACCOUNT_ID)
+
+        if not (valid_vendor and valid_account_key and valid_account_id):
+            missing_or_invalid = []
+            if not valid_vendor:
+                missing_or_invalid.append("VendorKey")
+            if not valid_account_key:
+                missing_or_invalid.append("AccountKey")
+            if not valid_account_id:
+                missing_or_invalid.append("AccountId")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Unauthorized: Invalid or missing CareStack credentials ({', '.join(missing_or_invalid)}). "
+                       f"CareStack Web API requires valid VendorKey, AccountKey, and AccountId headers.",
+            )
+
+    return {
+        "VendorKey": vendorkey or settings.CARESTACK_VENDOR_KEY,
+        "AccountKey": accountkey or settings.CARESTACK_ACCOUNT_KEY,
+        "AccountId": accountid or settings.CARESTACK_ACCOUNT_ID,
+    }
 
 
-class WebhookAppointmentDetails(BaseModel):
-    """Appointment context passed with webhook."""
-    appointment_id: Optional[str] = Field(default_factory=lambda: f"APT-{uuid.uuid4().hex[:6].upper()}")
-    date_time: Optional[str] = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    operatory: Optional[str] = "Operatory 2"
-    provider: Optional[str] = "Dr. Sarah Mitchell, DDS"
-    reason: Optional[str] = "Surgical Dental Extraction"
-    procedures: List[DentalProcedure] = Field(default_factory=list)
+# =====================================================================
+# Seed Clinical Dental Data Aligned with Official CareStack Models
+# =====================================================================
 
+MOCK_PROCEDURE_CODES: List[ProcedureCodeBasicApiResponseModel] = [
+    ProcedureCodeBasicApiResponseModel(
+        Id=101,
+        Code="D0120",
+        CdtCategoryId="Diagnostic",
+        CodeTypeId="Dental",
+        Description="Periodic oral evaluation - established patient",
+    ),
+    ProcedureCodeBasicApiResponseModel(
+        Id=102,
+        Code="D1110",
+        CdtCategoryId="Preventive",
+        CodeTypeId="Dental",
+        Description="Prophylaxis - adult (scaling and polishing)",
+    ),
+    ProcedureCodeBasicApiResponseModel(
+        Id=103,
+        Code="D4341",
+        CdtCategoryId="Periodontics",
+        CodeTypeId="Dental",
+        Description="Periodontal scaling and root planing - four or more teeth per quadrant",
+    ),
+    ProcedureCodeBasicApiResponseModel(
+        Id=104,
+        Code="D7140",
+        CdtCategoryId="OralandMaxillofacialSurgery",
+        CodeTypeId="Dental",
+        Description="Extraction, erupted tooth or exposed root",
+    ),
+    ProcedureCodeBasicApiResponseModel(
+        Id=105,
+        Code="D7210",
+        CdtCategoryId="OralandMaxillofacialSurgery",
+        CodeTypeId="Dental",
+        Description="Extraction, erupted tooth requiring removal of bone and/or sectioning of tooth",
+    ),
+    ProcedureCodeBasicApiResponseModel(
+        Id=106,
+        Code="D2740",
+        CdtCategoryId="Restorative",
+        CodeTypeId="Dental",
+        Description="Crown - porcelain/ceramic substrate",
+    ),
+    ProcedureCodeBasicApiResponseModel(
+        Id=107,
+        Code="D2750",
+        CdtCategoryId="Restorative",
+        CodeTypeId="Dental",
+        Description="Crown - porcelain fused to high noble metal",
+    ),
+    ProcedureCodeBasicApiResponseModel(
+        Id=108,
+        Code="D9110",
+        CdtCategoryId="AdjunctiveGeneralServices",
+        CodeTypeId="Dental",
+        Description="Palliative emergency treatment of dental pain - minor procedure",
+    ),
+]
 
-class CareStackWebhookEvent(BaseModel):
-    """Simulated CareStack Webhook payload for appointment creation or patient check-in."""
-    event_type: str = Field("patient.checkin", description="appointment.created | patient.checkin | appointment.updated")
-    event_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    patient: WebhookPatientDemographics
-    appointment: Optional[WebhookAppointmentDetails] = None
+MOCK_LOCATIONS: List[LocationDetailModel] = [
+    LocationDetailModel(
+        Id=1,
+        Name="CareStack Center for Advanced Dentistry - Main Operatory",
+        Address="100 Healthcare Boulevard, Suite 400, Boston, MA 02115",
+        Phone="(555) 019-2830",
+    ),
+    LocationDetailModel(
+        Id=2,
+        Name="CareStack Periodontal & Surgical Annex",
+        Address="104 Healthcare Boulevard, Suite 210, Boston, MA 02115",
+        Phone="(555) 019-2835",
+    ),
+]
 
+MOCK_OPERATORIES: List[OperatoryDetail] = [
+    OperatoryDetail(Id=1, Name="Operatory 1 (Surgical)", LocationId=1),
+    OperatoryDetail(Id=2, Name="Operatory 2 (Restorative)", LocationId=1),
+    OperatoryDetail(Id=3, Name="Hygiene 1 (Prophylaxis)", LocationId=1),
+    OperatoryDetail(Id=4, Name="Operatory 3 (Endodontics)", LocationId=2),
+]
 
-class MedicalAlertCreate(BaseModel):
-    """High-priority medical flag payload written back into CareStack's chart."""
-    alert_type: str = Field(..., description="critical | warning | info")
-    category: str = Field(..., description="coagulation | cardiac | metabolic | allergy | pharmacology")
-    title: str = Field(..., description="Brief alert title for chairside display")
-    details: str = Field(..., description="Detailed clinical guidance and contraindications")
-    source: str = Field("MDIN Interoperability Node", description="Originating surveillance engine")
-    action_required: Optional[str] = Field(None, description="Required clinician action (e.g. Pre-op antibiotic)")
+MOCK_APPOINTMENT_STATUSES: List[AppointmentStatusExternalModel] = [
+    AppointmentStatusExternalModel(Id=1, Name="Scheduled", Description="Appointment booked on schedule", Color="#3B82F6"),
+    AppointmentStatusExternalModel(Id=2, Name="Confirmed", Description="Patient confirmed arrival", Color="#10B981"),
+    AppointmentStatusExternalModel(Id=3, Name="InChair", Description="Patient currently seated in operatory", Color="#F59E0B"),
+    AppointmentStatusExternalModel(Id=4, Name="CheckedOut", Description="Clinical procedure completed and patient departed", Color="#6B7280"),
+    AppointmentStatusExternalModel(Id=5, Name="Cancelled", Description="Appointment cancelled or rescheduled", Color="#EF4444"),
+]
 
-
-# Seed CareStack dental patients aligned with FHIR EHR personas
+# Registered CareStack dental patients
 MOCK_PATIENTS: List[CareStackPatient] = [
-    # Patient 1: John Doe (Warfarin / AFib / Penicillin Anaphylaxis) -> Planned Surgical Extraction
     CareStackPatient(
         id="CS-2001",
         mrn="MRN-10001",
@@ -103,7 +220,6 @@ MOCK_PATIENTS: List[CareStackPatient] = [
             ),
         ],
     ),
-    # Patient 2: Jane Smith (Prosthetic Valve / Endocarditis Prophylaxis) -> Dental Cleaning & Crown
     CareStackPatient(
         id="CS-2002",
         mrn="MRN-10002",
@@ -133,7 +249,6 @@ MOCK_PATIENTS: List[CareStackPatient] = [
             ),
         ],
     ),
-    # Patient 3: Robert Taylor (Type 2 Diabetes Mellitus / HbA1c 9.2%) -> Surgical Extraction
     CareStackPatient(
         id="CS-1003",
         mrn="MRN-10003",
@@ -156,7 +271,6 @@ MOCK_PATIENTS: List[CareStackPatient] = [
             )
         ],
     ),
-    # Legacy Phase 1 Patients (Preserved for compatibility)
     CareStackPatient(
         id="CS-1001",
         mrn="EHR-88201",
@@ -210,6 +324,577 @@ MOCK_PATIENTS: List[CareStackPatient] = [
     ),
 ]
 
+# Simulated active appointments
+MOCK_APPOINTMENTS: Dict[int, Dict[str, Any]] = {
+    5001: {
+        "Id": 5001,
+        "PatientId": 2001,
+        "LocationId": 1,
+        "OperatoryId": 1,
+        "DateTime": "2026-09-22T09:30:00Z",
+        "Duration": 60,
+        "StatusId": 1,
+        "Notes": "Scheduled for surgical extraction tooth #30",
+        "BookingMode": "Direct",
+        "AppointmentMode": "InOffice",
+        "ProviderIds": [101],
+        "ProductionTypeId": 1,
+        "Procedures": [104, 103],  # D7140, D4341
+    },
+    5002: {
+        "Id": 5002,
+        "PatientId": 2002,
+        "LocationId": 1,
+        "OperatoryId": 3,
+        "DateTime": "2026-09-24T11:00:00Z",
+        "Duration": 45,
+        "StatusId": 2,
+        "Notes": "Scheduled for adult prophylaxis and crown prep",
+        "BookingMode": "Direct",
+        "AppointmentMode": "InOffice",
+        "ProviderIds": [101],
+        "ProductionTypeId": 1,
+        "Procedures": [102, 106],  # D1110, D2740
+    },
+}
+
+
+# =====================================================================
+# Official CareStack Web API V1 Endpoints
+# =====================================================================
+
+@router.get("/auth/verify", tags=["CareStack Web API V1 - Authentication"])
+async def verify_credentials_endpoint(
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    CareStack credential verification endpoint.
+    Tests that VendorKey, AccountKey, and AccountId headers match authorized keys.
+    """
+    creds = verify_carestack_credentials(vendorkey, accountkey, accountid, enforce=True)
+    return {
+        "authenticated": True,
+        "status": "authorized",
+        "accountId": creds["AccountId"],
+        "message": "CareStack API keys validated successfully.",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/patients/{patient_id}", response_model=Union[PatientViewModel, CareStackPatient], tags=["CareStack Web API V1 - Patients"])
+async def get_patient_record(
+    patient_id: str,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    GET /api/v1.0/patients/{id}
+    Retrieves a CareStack patient record by integer ID, CareStack patient identifier, or MRN.
+    Returns official CareStack PatientViewModel or CareStackPatient.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    # Search in MOCK_PATIENTS
+    clean_id = patient_id.strip()
+    clean_num = "".join(c for c in clean_id if c.isdigit())
+
+    for p in MOCK_PATIENTS:
+        p_num = "".join(c for c in p.id if c.isdigit())
+        if p.id == clean_id or p.mrn == clean_id or (clean_num and p_num == clean_num):
+            # If requested via official header or /api/v1.0 format, return PatientViewModel
+            if vendorkey or accountkey or clean_id.isdigit():
+                return p.to_view_model()
+            return p
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"CareStack patient '{patient_id}' not found")
+
+
+@router.post("/patients/search", response_model=List[PatientSearchResponseModel], tags=["CareStack Web API V1 - Patients"])
+async def search_patients(
+    request: SearchRequest,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    POST /api/v1.0/patients/search
+    Searches CareStack dental patients by name, patient identifier, or phone.
+    Returns official PatientSearchResponseModel list.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    results = []
+    term = (request.SearchTerm or "").lower().strip()
+
+    for p in MOCK_PATIENTS:
+        if not term or (
+            term in p.first_name.lower()
+            or term in p.last_name.lower()
+            or term in p.id.lower()
+            or term in p.mrn.lower()
+            or (p.phone and term in p.phone.lower())
+        ):
+            results.append(p.to_search_result())
+
+    offset = request.Offset or 0
+    limit = request.Limit or 50
+    return results[offset : offset + limit]
+
+
+@router.post("/patients", response_model=PatientViewModel, status_code=status.HTTP_201_CREATED, tags=["CareStack Web API V1 - Patients"])
+async def create_patient(
+    patient: PatientViewModel,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    POST /api/v1.0/patients
+    Creates a new patient record in CareStack PMS.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    new_num = max([int("".join(c for c in p.id if c.isdigit()) or 1000) for p in MOCK_PATIENTS] + [2000]) + 1
+    new_id = f"CS-{new_num}"
+    new_mrn = f"MRN-{new_num}"
+
+    created_pt = CareStackPatient(
+        id=new_id,
+        mrn=new_mrn,
+        first_name=patient.FirstName,
+        last_name=patient.LastName,
+        birth_date=patient.DOB[:10] if patient.DOB else "1990-01-01",
+        gender=patient.Gender.lower() if patient.Gender else "unknown",
+        email=patient.Email,
+        phone=patient.Mobile or patient.PhoneWithExt,
+    )
+    MOCK_PATIENTS.append(created_pt)
+    result = created_pt.to_view_model()
+    result.Id = new_num
+    return result
+
+
+@router.put("/patients", response_model=PatientViewModel, tags=["CareStack Web API V1 - Patients"])
+async def update_patient(
+    patient: PatientViewModel,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    PUT /api/v1.0/patients
+    Updates an existing patient record in CareStack PMS.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    for p in MOCK_PATIENTS:
+        p_num = "".join(c for c in p.id if c.isdigit())
+        if (patient.Id and str(patient.Id) == p_num) or (patient.PatientIdentifier and patient.PatientIdentifier == p.id):
+            p.first_name = patient.FirstName
+            p.last_name = patient.LastName
+            if patient.Email:
+                p.email = patient.Email
+            if patient.Mobile:
+                p.phone = patient.Mobile
+            return p.to_view_model()
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient to update not found")
+
+
+@router.get("/patients/{patient_id}/periodontal-charting", response_model=PeriodontalChart, tags=["CareStack Web API V1 - Perio"])
+async def get_periodontal_charting(
+    patient_id: str,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    GET /api/v1.0/patients/{patientId}/periodontal-charting
+    Retrieves comprehensive periodontal probing depths and examination records.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    clean_num = int("".join(c for c in patient_id if c.isdigit()) or "2001")
+
+    # Generate realistic periodontal measurements for key teeth (1 to 32)
+    teeth_data = []
+    for tooth in ["2", "3", "14", "15", "18", "19", "30", "31"]:
+        # Teeth with deeper pockets indicating periodontal disease
+        if tooth in ["19", "30"]:
+            teeth_data.append(
+                PerioMeasurement(
+                    tooth_number=tooth,
+                    buccal_depths=[5, 4, 6],
+                    lingual_depths=[5, 5, 6],
+                    bleeding_on_probing=True,
+                    furcation=2,
+                    mobility=1,
+                )
+            )
+        else:
+            teeth_data.append(
+                PerioMeasurement(
+                    tooth_number=tooth,
+                    buccal_depths=[3, 2, 3],
+                    lingual_depths=[3, 2, 3],
+                    bleeding_on_probing=False,
+                )
+            )
+
+    return PeriodontalChart(
+        id=f"PERIO-{clean_num}",
+        PatientID=clean_num,
+        Date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        ExamName="Comprehensive Full-Mouth Periodontal Probing",
+        ProviderID=101,
+        LocationID=1,
+        Status="Active",
+        Dentition="Permanent",
+        teeth=teeth_data,
+    )
+
+
+@router.get("/procedure-codes", response_model=List[ProcedureCodeBasicApiResponseModel], tags=["CareStack Web API V1 - Treatments"])
+async def list_procedure_codes(
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    GET /api/v1.0/procedure-codes
+    Retrieves all American Dental Association (ADA) Code on Dental Procedures and Nomenclature (CDT) codes.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+    return MOCK_PROCEDURE_CODES
+
+
+@router.get("/treatments/appointment-procedures/{appointment_id}", response_model=List[int], tags=["CareStack Web API V1 - Treatments"])
+async def get_appointment_procedures(
+    appointment_id: int,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    GET /api/v1.0/treatments/appointment-procedures/{appointmentId}
+    Returns procedure code IDs associated with a specific appointment.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    apt = MOCK_APPOINTMENTS.get(appointment_id)
+    if not apt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Appointment {appointment_id} not found")
+
+    return apt.get("Procedures", [])
+
+
+@router.get("/appointments/{appointment_id}", response_model=AppointmentDetailModel, tags=["CareStack Web API V1 - Appointments"])
+async def get_appointment(
+    appointment_id: int,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    GET /api/v1.0/appointments/{appointmentId}
+    Retrieves appointment details from CareStack.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    apt = MOCK_APPOINTMENTS.get(appointment_id)
+    if not apt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Appointment {appointment_id} not found")
+
+    return AppointmentDetailModel(
+        Id=apt["Id"],
+        PatientId=apt["PatientId"],
+        LocationId=apt.get("LocationId", 1),
+        OperatoryId=apt.get("OperatoryId", 1),
+        DateTime=apt["DateTime"],
+        Duration=apt.get("Duration", 60),
+        StatusId=apt.get("StatusId", 1),
+        Notes=apt.get("Notes"),
+        BookingMode=apt.get("BookingMode", "Direct"),
+        AppointmentMode=apt.get("AppointmentMode", "InOffice"),
+        ProviderIds=apt.get("ProviderIds", [101]),
+        Providers=[AppointmentProviderModel(ProviderId=101, ProviderName="Dr. Sarah Mitchell, DDS")],
+    )
+
+
+@router.post("/appointments", response_model=AppointmentDetailModel, status_code=status.HTTP_201_CREATED, tags=["CareStack Web API V1 - Appointments"])
+async def create_appointment(
+    appointment: AppointmentDetailModel,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    POST /api/v1.0/appointments
+    Books a new chairside appointment.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    new_id = max(MOCK_APPOINTMENTS.keys(), default=5000) + 1
+    apt_data = appointment.model_dump()
+    apt_data["Id"] = new_id
+    MOCK_APPOINTMENTS[new_id] = apt_data
+
+    return AppointmentDetailModel(
+        Id=new_id,
+        PatientId=appointment.PatientId,
+        LocationId=appointment.LocationId or 1,
+        OperatoryId=appointment.OperatoryId or 1,
+        DateTime=appointment.DateTime,
+        Duration=appointment.Duration or 60,
+        StatusId=1,
+        Notes=appointment.Notes,
+        ProviderIds=appointment.ProviderIds or [101],
+        Providers=[AppointmentProviderModel(ProviderId=101, ProviderName="Dr. Sarah Mitchell, DDS")],
+    )
+
+
+@router.put("/appointments/{appointment_id}/modify-status", tags=["CareStack Web API V1 - Appointments"])
+async def modify_appointment_status(
+    appointment_id: int,
+    payload: Dict[str, Any],
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    PUT /api/v1.0/appointments/{appointmentId}/modify-status
+    Modifies status of appointment (e.g. InChair, Confirmed).
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    apt = MOCK_APPOINTMENTS.get(appointment_id)
+    if not apt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Appointment {appointment_id} not found")
+
+    new_status = payload.get("StatusId", 2)
+    apt["StatusId"] = new_status
+    return {
+        "success": True,
+        "appointmentId": appointment_id,
+        "statusId": new_status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.put("/appointments/{appointment_id}/checkout", tags=["CareStack Web API V1 - Appointments"])
+async def checkout_appointment(
+    appointment_id: int,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    PUT /api/v1.0/appointments/{appointmentId}/checkout
+    Checks out an appointment post-treatment.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    apt = MOCK_APPOINTMENTS.get(appointment_id)
+    if not apt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Appointment {appointment_id} not found")
+
+    apt["StatusId"] = 4  # CheckedOut
+    return {
+        "success": True,
+        "appointmentId": appointment_id,
+        "status": "CheckedOut",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.put("/appointments/{appointment_id}/cancel", tags=["CareStack Web API V1 - Appointments"])
+async def cancel_appointment(
+    appointment_id: int,
+    payload: Optional[Dict[str, Any]] = None,
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    PUT /api/v1.0/appointments/{appointmentId}/cancel
+    Cancels an appointment.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    apt = MOCK_APPOINTMENTS.get(appointment_id)
+    if not apt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Appointment {appointment_id} not found")
+
+    apt["StatusId"] = 5  # Cancelled
+    apt["CancelReason"] = (payload or {}).get("CancelReason", "Patient request")
+    return {
+        "success": True,
+        "appointmentId": appointment_id,
+        "status": "Cancelled",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/appointment-status", response_model=List[AppointmentStatusExternalModel], tags=["CareStack Web API V1 - Appointments"])
+async def get_appointment_statuses(
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    GET /api/v1.0/appointment-status
+    Lists all appointment status enumerations.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+    return MOCK_APPOINTMENT_STATUSES
+
+
+@router.get("/sync/patients", response_model=PagedResultsOfPatientViewModel, tags=["CareStack Web API V1 - Sync"])
+async def sync_patients_endpoint(
+    modifiedSince: Optional[str] = Query(None, description="ISO timestamp for incremental sync"),
+    continueToken: Optional[str] = Query(None, description="Continuation token for pagination"),
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    GET /api/v1.0/sync/patients
+    Incremental synchronization of patient records.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    view_models = [p.to_view_model() for p in MOCK_PATIENTS]
+    return PagedResultsOfPatientViewModel(
+        Results=view_models,
+        TotalRecords=len(view_models),
+        ContinueToken=None,
+    )
+
+
+@router.get("/sync/treatment-procedures", response_model=List[TreatmentProcedureSyncModel], tags=["CareStack Web API V1 - Sync"])
+async def sync_treatment_procedures(
+    modifiedSince: Optional[str] = Query(None),
+    continueToken: Optional[str] = Query(None),
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """
+    GET /api/v1.0/sync/treatment-procedures
+    Returns all treatment plan procedures across registered patients for sync.
+    """
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+
+    sync_list = []
+    proc_counter = 7001
+    for p in MOCK_PATIENTS:
+        p_num = int("".join(c for c in p.id if c.isdigit()) or "2001")
+        for proc in p.active_treatment_plan:
+            code_id = next((c.Id for c in MOCK_PROCEDURE_CODES if c.Code == proc.code), 104)
+            sync_list.append(
+                TreatmentProcedureSyncModel(
+                    Id=proc_counter,
+                    PatientId=p_num,
+                    TreatmentPlanId=1001,
+                    TreatmentPlanPhaseId=1,
+                    ProcedureCodeId=code_id,
+                    ProcedureCode=proc.code,
+                    Tooth=proc.tooth_number,
+                    PatientEstimate=proc.cost or 250.0,
+                    StatusId=proc.status.capitalize(),
+                    LastUpdatedOn=datetime.now(timezone.utc).isoformat(),
+                )
+            )
+            proc_counter += 1
+
+    return sync_list
+
+
+@router.get("/locations", response_model=List[LocationDetailModel], tags=["CareStack Web API V1 - Practice"])
+async def list_locations(
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """GET /api/v1.0/locations - List all clinic locations."""
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+    return MOCK_LOCATIONS
+
+
+@router.get("/operatories", response_model=List[OperatoryDetail], tags=["CareStack Web API V1 - Practice"])
+async def list_operatories(
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """GET /api/v1.0/operatories - List all practice operatories."""
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+    return MOCK_OPERATORIES
+
+
+@router.get("/production-types", tags=["CareStack Web API V1 - Practice"])
+async def list_production_types(
+    vendorkey: Optional[str] = Header(None, alias="VendorKey"),
+    accountkey: Optional[str] = Header(None, alias="AccountKey"),
+    accountid: Optional[str] = Header(None, alias="AccountId"),
+):
+    """GET /api/v1.0/production-types - List production types."""
+    verify_carestack_credentials(vendorkey, accountkey, accountid)
+    return [
+        {"Id": 1, "Name": "General Dentistry"},
+        {"Id": 2, "Name": "Oral and Maxillofacial Surgery"},
+        {"Id": 3, "Name": "Periodontics"},
+        {"Id": 4, "Name": "Prosthodontics"},
+    ]
+
+
+# =====================================================================
+# MDIN Interoperability Bridges & Webhook Ingestion
+# =====================================================================
+
+class WebhookPatientDemographics(BaseModel):
+    """Demographics passed within a CareStack webhook event."""
+    id: str = Field(..., description="CareStack internal patient identifier, e.g. CS-2001")
+    first_name: str = Field(..., description="Patient given name")
+    last_name: str = Field(..., description="Patient family name")
+    birth_date: str = Field(..., description="Birth date in YYYY-MM-DD format")
+    gender: Optional[str] = Field(None, description="male | female | other")
+    mrn: Optional[str] = Field(None, description="External Medical Record Number if known")
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+
+class WebhookAppointmentDetails(BaseModel):
+    """Appointment context passed with webhook."""
+    appointment_id: Optional[str] = Field(default_factory=lambda: f"APT-{uuid.uuid4().hex[:6].upper()}")
+    date_time: Optional[str] = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    operatory: Optional[str] = "Operatory 2"
+    provider: Optional[str] = "Dr. Sarah Mitchell, DDS"
+    reason: Optional[str] = "Surgical Dental Extraction"
+    procedures: List[DentalProcedure] = Field(default_factory=list)
+
+
+class CareStackWebhookEvent(BaseModel):
+    """CareStack Webhook payload for appointment creation or patient check-in."""
+    event_type: str = Field("patient.checkin", description="appointment.created | patient.checkin | appointment.updated")
+    event_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    patient: WebhookPatientDemographics
+    appointment: Optional[WebhookAppointmentDetails] = None
+
+
+class MedicalAlertCreate(BaseModel):
+    """High-priority medical flag payload written back into CareStack's chart."""
+    alert_type: str = Field(..., description="critical | warning | info")
+    category: str = Field(..., description="coagulation | cardiac | metabolic | allergy | pharmacology")
+    title: str = Field(..., description="Brief alert title for chairside display")
+    details: str = Field(..., description="Detailed clinical guidance and contraindications")
+    source: str = Field("MDIN Interoperability Node", description="Originating surveillance engine")
+    action_required: Optional[str] = Field(None, description="Required clinician action (e.g. Pre-op antibiotic)")
+
 
 def _match_ehr_patient(demographics: WebhookPatientDemographics) -> Optional[Dict[str, Any]]:
     """
@@ -238,7 +923,6 @@ def _match_ehr_patient(demographics: WebhookPatientDemographics) -> Optional[Dic
         if dob_match:
             score += 0.4
         else:
-            # DOB mismatch heavily penalizes
             score -= 0.3
 
         # Name match
@@ -273,7 +957,6 @@ def _evaluate_clinical_flags(ehr_patient_id: str, dental_procedures: List[Dental
     alerts = []
     norm_id = _normalize_ref_id(ehr_patient_id).lower()
 
-    # Find patient's conditions, medications, allergies, and observations
     conditions = [
         c for c in FHIR_STORE["Condition"]
         if norm_id in _normalize_ref_id(c.get("subject", {}).get("reference", "")).lower()
@@ -371,10 +1054,10 @@ def _evaluate_clinical_flags(ehr_patient_id: str, dental_procedures: List[Dental
     return alerts
 
 
-@router.post("/webhook")
+@router.post("/webhook", tags=["MDIN Interoperability"])
 async def carestack_webhook(event: CareStackWebhookEvent):
     """
-    Simulates CareStack appointment creation or patient check-in webhook.
+    CareStack appointment creation or patient check-in webhook.
     1. Extracts patient demographics from CareStack PMS.
     2. Queries simulated FHIR EHR node via exact/probabilistic demographic matching.
     3. Caches synchronized clinical context in-memory.
@@ -454,7 +1137,6 @@ async def carestack_webhook(event: CareStackWebhookEvent):
             "status": "active_in_chart",
             **alert,
         }
-        # Avoid duplicate titles
         if not any(a.get("title") == alert["title"] for a in PATIENT_MEDICAL_ALERTS[demographics.id]):
             PATIENT_MEDICAL_ALERTS[demographics.id].append(alert_record)
 
@@ -472,12 +1154,13 @@ async def carestack_webhook(event: CareStackWebhookEvent):
     }
 
 
-@router.get("/patients", response_model=List[CareStackPatient])
+@router.get("/patients", response_model=List[CareStackPatient], tags=["MDIN Interoperability - Patients"])
 async def list_carestack_patients(
     search: Optional[str] = Query(None, description="Search by name, CareStack ID, or MRN"),
 ):
     """
     Returns dental patients registered in the CareStack PMS, complete with active treatment plans.
+    Dual compatible with existing frontend and tests.
     """
     if not search:
         return MOCK_PATIENTS
@@ -493,25 +1176,15 @@ async def list_carestack_patients(
     ]
 
 
-@router.get("/patients/{patient_id}", response_model=CareStackPatient)
-async def get_carestack_patient(patient_id: str):
-    """Retrieve detailed dental record and treatment plan for a specific CareStack patient."""
-    for p in MOCK_PATIENTS:
-        if p.id == patient_id or p.mrn == patient_id:
-            return p
-    raise HTTPException(status_code=404, detail=f"CareStack patient '{patient_id}' not found")
-
-
-@router.post("/patients/{patient_id}/medical-alerts")
+@router.post("/patients/{patient_id}/medical-alerts", tags=["MDIN Interoperability - Alerts"])
 async def write_medical_alert(
     patient_id: str,
     alert: MedicalAlertCreate,
 ):
     """
-    Mock endpoint for writing high-priority medical flags back to CareStack's chart.
+    Writes high-priority medical flags back to CareStack's chart.
     Simulates bidirectional push of critical clinical contraindications from MDIN to CareStack PMS.
     """
-    # Verify patient exists
     patient = None
     for p in MOCK_PATIENTS:
         if p.id == patient_id or p.mrn == patient_id:
@@ -549,11 +1222,10 @@ async def write_medical_alert(
     }
 
 
-@router.get("/patients/{patient_id}/medical-alerts")
+@router.get("/patients/{patient_id}/medical-alerts", tags=["MDIN Interoperability - Alerts"])
 async def get_patient_medical_alerts(patient_id: str):
     """Retrieve all high-priority medical alerts written to CareStack chart for a patient."""
     alerts = PATIENT_MEDICAL_ALERTS.get(patient_id, [])
-    # Also check if query is MRN
     if not alerts:
         for p in MOCK_PATIENTS:
             if p.mrn == patient_id:
@@ -566,7 +1238,7 @@ async def get_patient_medical_alerts(patient_id: str):
     }
 
 
-@router.get("/cache/{patient_id}")
+@router.get("/cache/{patient_id}", tags=["MDIN Interoperability - Cache"])
 async def get_cached_context(patient_id: str):
     """Inspect in-memory synchronized clinical context cache for a given CareStack patient."""
     if patient_id not in SYNCED_CLINICAL_CACHE:
@@ -574,20 +1246,20 @@ async def get_cached_context(patient_id: str):
     return SYNCED_CLINICAL_CACHE[patient_id]
 
 
-@router.get("/status", response_model=SyncStatusResponse)
+@router.get("/status", response_model=SyncStatusResponse, tags=["MDIN Interoperability - Status"])
 async def get_carestack_status():
     """Check connectivity and synchronization status with CareStack PMS."""
     return SyncStatusResponse(
         status="connected",
-        message="CareStack Interoperability Node is operational and synchronized.",
+        message="CareStack Interoperability Node is operational and synchronized with CareStack Web API V1.",
         synced_patients=len(MOCK_PATIENTS),
         last_sync_timestamp=datetime.now(timezone.utc).isoformat(),
-        carestack_connection=f"Active ({settings.CARESTACK_BASE_URL})",
+        carestack_connection=f"Active ({settings.CARESTACK_BASE_URL}) [Auth: VendorKey+AccountKey+AccountId]",
         ehr_connection=f"Active ({settings.FHIR_SERVER_URL})",
     )
 
 
-@router.post("/sync")
+@router.post("/sync", tags=["MDIN Interoperability - Sync"])
 async def trigger_sync(sync_req: CareStackSyncRequest):
     """
     Trigger bi-directional reconciliation between CareStack PMS and Medical EHR.

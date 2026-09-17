@@ -30,6 +30,7 @@ app.add_middleware(
 
 # Mount the required interoperability routers
 app.include_router(carestack_router, prefix="/api/carestack", tags=["CareStack"])
+app.include_router(carestack_router, prefix="/api/v1.0", tags=["CareStack Web API V1"])
 app.include_router(fhir_router, prefix="/api/fhir", tags=["FHIR R4"])
 app.include_router(cds_router, prefix="/cds-services", tags=["CDS Hooks"])
 
@@ -46,6 +47,7 @@ async def root():
             "docs": "/docs",
             "health": "/health",
             "carestack": "/api/carestack/status",
+            "carestack_v1": "/api/v1.0/patients",
             "fhir": "/api/fhir/metadata",
             "cds_discovery": "/cds-services",
         },
