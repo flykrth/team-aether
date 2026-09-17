@@ -187,6 +187,41 @@ def _normalize_ref_id(ref_or_id: str) -> str:
     return ref_or_id.strip()
 
 
+PATIENT_ID_ALIASES: Dict[str, str] = {
+    "pat-1": "patient-001",
+    "pat-001": "patient-001",
+    "patient-1": "patient-001",
+    "patient-001": "patient-001",
+    "cs-2001": "patient-001",
+    "pat-2": "patient-002",
+    "pat-002": "patient-002",
+    "patient-2": "patient-002",
+    "patient-002": "patient-002",
+    "cs-2002": "patient-002",
+    "pat-3": "patient-003",
+    "pat-003": "patient-003",
+    "patient-3": "patient-003",
+    "patient-003": "patient-003",
+    "cs-1003": "patient-003",
+    "cs-2003": "patient-003",
+}
+
+
+def _resolve_patient_aliases(ref_or_id: str) -> List[str]:
+    """Return list of acceptable identifier/ID strings for patient matching."""
+    norm = _normalize_ref_id(ref_or_id).lower()
+    if not norm:
+        return []
+    keys = {norm}
+    if norm in PATIENT_ID_ALIASES:
+        canonical = PATIENT_ID_ALIASES[norm]
+        keys.add(canonical)
+    for k, v in PATIENT_ID_ALIASES.items():
+        if v == norm or (norm in PATIENT_ID_ALIASES and v == PATIENT_ID_ALIASES[norm]):
+            keys.add(k)
+    return list(keys)
+
+
 @router.get("/metadata", response_model=CapabilityStatement)
 async def get_capability_statement():
     """Return FHIR CapabilityStatement for the Medical-Dental Interoperability Node."""
@@ -341,13 +376,12 @@ async def search_patients(
 @router.get("/Patient/{patient_id}")
 async def get_patient_by_id(patient_id: str):
     """Retrieve single FHIR Patient by ID or MRN."""
-    norm_id = _normalize_ref_id(patient_id).lower()
+    matching_keys = _resolve_patient_aliases(patient_id)
     for p in FHIR_STORE["Patient"]:
-        if p.get("id", "").lower() == norm_id:
+        pid = p.get("id", "").lower()
+        ident_vals = [ident.get("value", "").lower() for ident in p.get("identifier", [])]
+        if any(k == pid or k in ident_vals for k in matching_keys):
             return p
-        for ident in p.get("identifier", []):
-            if ident.get("value", "").lower() == norm_id:
-                return p
     raise HTTPException(status_code=404, detail=f"FHIR Patient '{patient_id}' not found")
 
 
@@ -358,15 +392,15 @@ async def get_patient_everything(patient_id: str):
     Returns complete FHIR R4 Bundle containing all medical records, active conditions,
     medication requests, allergy intolerances, and diagnostic observations for the patient.
     """
-    norm_id = _normalize_ref_id(patient_id).lower()
+    matching_keys = _resolve_patient_aliases(patient_id)
 
     # Find the patient
     matched_patient = None
-    all_matching_keys = [norm_id]
+    all_matching_keys = list(matching_keys)
     for p in FHIR_STORE["Patient"]:
         pid = p.get("id", "").lower()
         mrns = [ident.get("value", "").lower() for ident in p.get("identifier", [])]
-        if norm_id == pid or norm_id in mrns:
+        if any(k == pid or k in mrns for k in matching_keys):
             matched_patient = p
             all_matching_keys.append(pid)
             all_matching_keys.extend(mrns)
@@ -458,13 +492,13 @@ async def list_conditions(
 ):
     """Filter active medical conditions for a given patient."""
     results = []
-    norm_patient = _normalize_ref_id(patient).lower() if patient else None
+    norm_patient_keys = _resolve_patient_aliases(patient) if patient else []
 
     for cond in FHIR_STORE["Condition"]:
         # Match patient if provided
-        if norm_patient:
+        if norm_patient_keys:
             subj_ref = _normalize_ref_id(cond.get("subject", {}).get("reference", "")).lower()
-            if norm_patient not in subj_ref:
+            if not any(k == subj_ref or k in subj_ref or subj_ref in k for k in norm_patient_keys):
                 continue
 
         # Check clinicalStatus
@@ -487,12 +521,12 @@ async def list_medication_requests(
 ):
     """Filter active medication requests for a given patient."""
     results = []
-    norm_patient = _normalize_ref_id(patient).lower() if patient else None
+    norm_patient_keys = _resolve_patient_aliases(patient) if patient else []
 
     for med in FHIR_STORE["MedicationRequest"]:
-        if norm_patient:
+        if norm_patient_keys:
             subj_ref = _normalize_ref_id(med.get("subject", {}).get("reference", "")).lower()
-            if norm_patient not in subj_ref:
+            if not any(k == subj_ref or k in subj_ref or subj_ref in k for k in norm_patient_keys):
                 continue
 
         if status and med.get("status", "").lower() != status.lower():
@@ -509,12 +543,12 @@ async def list_allergies(
 ):
     """Filter allergy and intolerance records for a given patient."""
     results = []
-    norm_patient = _normalize_ref_id(patient).lower() if patient else None
+    norm_patient_keys = _resolve_patient_aliases(patient) if patient else []
 
     for alg in FHIR_STORE["AllergyIntolerance"]:
-        if norm_patient:
+        if norm_patient_keys:
             patient_ref = _normalize_ref_id(alg.get("patient", {}).get("reference", "")).lower()
-            if norm_patient not in patient_ref:
+            if not any(k == patient_ref or k in patient_ref or patient_ref in k for k in norm_patient_keys):
                 continue
 
         results.append(alg)
@@ -528,12 +562,12 @@ async def list_observations(
 ):
     """Filter diagnostic observations and laboratory results (e.g. HbA1c, INR)."""
     results = []
-    norm_patient = _normalize_ref_id(patient).lower() if patient else None
+    norm_patient_keys = _resolve_patient_aliases(patient) if patient else []
 
     for obs in FHIR_STORE["Observation"]:
-        if norm_patient:
+        if norm_patient_keys:
             subj_ref = _normalize_ref_id(obs.get("subject", {}).get("reference", "")).lower()
-            if norm_patient not in subj_ref:
+            if not any(k == subj_ref or k in subj_ref or subj_ref in k for k in norm_patient_keys):
                 continue
 
         results.append(obs)
@@ -561,14 +595,14 @@ async def evaluate_patient_risks(patient_id: str, body: Optional[EvaluateRisksRe
     An optional planned dental procedure code (e.g. CDT D7140 Extraction) may be supplied
     for context in the response.
     """
-    norm_id = _normalize_ref_id(patient_id).lower()
+    matching_keys = _resolve_patient_aliases(patient_id)
 
     matched_patient = None
-    all_matching_keys = [norm_id]
+    all_matching_keys = list(matching_keys)
     for p in FHIR_STORE["Patient"]:
         pid = p.get("id", "").lower()
         mrns = [ident.get("value", "").lower() for ident in p.get("identifier", [])]
-        if norm_id == pid or norm_id in mrns:
+        if any(k == pid or k in mrns for k in matching_keys):
             matched_patient = p
             all_matching_keys.append(pid)
             all_matching_keys.extend(mrns)

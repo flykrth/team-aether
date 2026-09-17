@@ -167,15 +167,15 @@ class CDSEngine:
             observations = self._extract_resource_list(raw_obs)
 
         # 2. Fallback to simulated FHIR EHR store if prefetch is missing or incomplete
-        from ..routers.fhir_ehr_mock import FHIR_STORE
+        from ..routers.fhir_ehr_mock import FHIR_STORE, _resolve_patient_aliases
 
-        matching_keys = [norm_patient_id] if norm_patient_id else []
+        matching_keys = _resolve_patient_aliases(norm_patient_id) if norm_patient_id else []
 
         if not patient and norm_patient_id:
             for p in FHIR_STORE["Patient"]:
                 pid = p.get("id", "").lower()
                 mrns = [ident.get("value", "").lower() for ident in p.get("identifier", [])]
-                if norm_patient_id == pid or norm_patient_id in mrns or any(norm_patient_id in m for m in mrns) or (norm_patient_id and norm_patient_id in pid):
+                if any(k == pid or k in mrns or (k and k in pid) for k in matching_keys):
                     patient = p
                     matching_keys.append(pid)
                     matching_keys.extend(mrns)

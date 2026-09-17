@@ -54,6 +54,25 @@ router = APIRouter()
 SYNCED_CLINICAL_CACHE: Dict[str, Dict[str, Any]] = {}
 PATIENT_MEDICAL_ALERTS: Dict[str, List[Dict[str, Any]]] = {}
 
+CARESTACK_PATIENT_ALIASES: Dict[str, str] = {
+    "pat-1": "CS-2001",
+    "patient-001": "CS-2001",
+    "patient-1": "CS-2001",
+    "mrn-10001": "CS-2001",
+    "cs-2001": "CS-2001",
+    "pat-2": "CS-2002",
+    "patient-002": "CS-2002",
+    "patient-2": "CS-2002",
+    "mrn-10002": "CS-2002",
+    "cs-2002": "CS-2002",
+    "pat-3": "CS-2003",
+    "patient-003": "CS-2003",
+    "patient-3": "CS-2003",
+    "mrn-10003": "CS-2003",
+    "cs-1003": "CS-2003",
+    "cs-2003": "CS-2003",
+}
+
 # =====================================================================
 # Authentication Helper for CareStack Web API V1
 # =====================================================================
@@ -1125,6 +1144,17 @@ async def carestack_webhook(event: CareStackWebhookEvent):
         "alerts": evaluated_alerts,
     }
     SYNCED_CLINICAL_CACHE[demographics.id] = cached_context
+    alias_cache_keys = [demographics.id]
+    if ehr_id:
+        alias_cache_keys.append(ehr_id)
+        if ehr_id in ("patient-001", "pat-1"):
+            alias_cache_keys.extend(["pat-1", "patient-001", "CS-2001"])
+        elif ehr_id in ("patient-002", "pat-2"):
+            alias_cache_keys.extend(["pat-2", "patient-002", "CS-2002"])
+        elif ehr_id in ("patient-003", "pat-3"):
+            alias_cache_keys.extend(["pat-3", "patient-003", "CS-2003"])
+    for key in set(alias_cache_keys):
+        SYNCED_CLINICAL_CACHE[key] = cached_context
 
     # Automatically write high-priority alerts to patient's chart
     if demographics.id not in PATIENT_MEDICAL_ALERTS:
@@ -1185,9 +1215,10 @@ async def write_medical_alert(
     Writes high-priority medical flags back to CareStack's chart.
     Simulates bidirectional push of critical clinical contraindications from MDIN to CareStack PMS.
     """
+    canonical_id = CARESTACK_PATIENT_ALIASES.get(patient_id.lower(), patient_id)
     patient = None
     for p in MOCK_PATIENTS:
-        if p.id == patient_id or p.mrn == patient_id:
+        if p.id == patient_id or p.mrn == patient_id or p.id == canonical_id or p.mrn == canonical_id:
             patient = p
             break
 
@@ -1210,10 +1241,11 @@ async def write_medical_alert(
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    if patient.id not in PATIENT_MEDICAL_ALERTS:
-        PATIENT_MEDICAL_ALERTS[patient.id] = []
-
-    PATIENT_MEDICAL_ALERTS[patient.id].append(alert_record)
+    for key in {patient.id, patient_id, canonical_id}:
+        if key not in PATIENT_MEDICAL_ALERTS:
+            PATIENT_MEDICAL_ALERTS[key] = []
+        if not any(a["alert_id"] == alert_id for a in PATIENT_MEDICAL_ALERTS[key]):
+            PATIENT_MEDICAL_ALERTS[key].append(alert_record)
 
     return {
         "success": True,
@@ -1225,10 +1257,11 @@ async def write_medical_alert(
 @router.get("/patients/{patient_id}/medical-alerts", tags=["MDIN Interoperability - Alerts"])
 async def get_patient_medical_alerts(patient_id: str):
     """Retrieve all high-priority medical alerts written to CareStack chart for a patient."""
-    alerts = PATIENT_MEDICAL_ALERTS.get(patient_id, [])
+    canonical_id = CARESTACK_PATIENT_ALIASES.get(patient_id.lower(), patient_id)
+    alerts = PATIENT_MEDICAL_ALERTS.get(patient_id, []) or PATIENT_MEDICAL_ALERTS.get(canonical_id, [])
     if not alerts:
         for p in MOCK_PATIENTS:
-            if p.mrn == patient_id:
+            if p.mrn == patient_id or p.id == canonical_id or p.mrn == canonical_id:
                 alerts = PATIENT_MEDICAL_ALERTS.get(p.id, [])
                 break
     return {
@@ -1241,9 +1274,11 @@ async def get_patient_medical_alerts(patient_id: str):
 @router.get("/cache/{patient_id}", tags=["MDIN Interoperability - Cache"])
 async def get_cached_context(patient_id: str):
     """Inspect in-memory synchronized clinical context cache for a given CareStack patient."""
-    if patient_id not in SYNCED_CLINICAL_CACHE:
+    canonical_id = CARESTACK_PATIENT_ALIASES.get(patient_id.lower(), patient_id)
+    cached = SYNCED_CLINICAL_CACHE.get(patient_id) or SYNCED_CLINICAL_CACHE.get(canonical_id)
+    if not cached:
         raise HTTPException(status_code=404, detail=f"No cached clinical context for patient '{patient_id}'.")
-    return SYNCED_CLINICAL_CACHE[patient_id]
+    return cached
 
 
 @router.get("/status", response_model=SyncStatusResponse, tags=["MDIN Interoperability - Status"])
