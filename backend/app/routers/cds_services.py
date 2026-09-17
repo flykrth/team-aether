@@ -103,16 +103,45 @@ async def evaluate_med_dental_risk(request: CDSHookRequest):
             )
         )
 
-    # Case 2: Robert Taylor (EHR-99342 / CS-1003) - Mechanical Valve & Warfarin Anticoagulation
-    elif "99342" in patient_id or "1003" in patient_id:
+    # Case 2: John Doe (patient-001 / MRN-10001 / CS-2001) - Warfarin Anticoagulation & Penicillin Allergy
+    elif "patient-001" in patient_id or "10001" in patient_id or "2001" in patient_id:
+        cards.append(
+            CDSCard(
+                summary="CRITICAL: Anticoagulation / Hemorrhage Risk (Warfarin Therapy)",
+                indicator="critical",
+                detail=(
+                    "Patient is actively prescribed Warfarin Sodium 5 MG (RxNorm: 855332) for Atrial Fibrillation. "
+                    "Planned extraction of Tooth #30 (D7140) carries substantial surgical bleeding hazard. "
+                    "Verify current INR (<3.5 within 24h) and apply local hemostatic agents (gelatin sponge, tranexamic acid rinse)."
+                ),
+                source=CDSSource(
+                    label="MDIN Hematology Surveillance Node",
+                    url="https://www.heart.org",
+                ),
+            )
+        )
+        cards.append(
+            CDSCard(
+                summary="CRITICAL: Severe Penicillin Allergy (Anaphylaxis Risk)",
+                indicator="critical",
+                detail=(
+                    "Patient has documented severe allergy to Penicillin (SNOMED: 70618001) with manifestation of Anaphylaxis. "
+                    "Strict contraindication for all beta-lactams (Amoxicillin, Penicillin V). "
+                    "Prescribe Clindamycin 600mg or Azithromycin 500mg if antibiotic required."
+                ),
+                source=CDSSource(label="FHIR AllergyIntolerance Stream"),
+            )
+        )
+
+    # Case 3: Jane Smith (patient-002 / MRN-10002 / CS-2002) - Prosthetic Valve / AHA Prophylaxis
+    elif "patient-002" in patient_id or "10002" in patient_id or "2002" in patient_id:
         cards.append(
             CDSCard(
                 summary="CRITICAL: AHA Antibiotic Prophylaxis Required (Prosthetic Valve)",
                 indicator="critical",
                 detail=(
-                    "Patient has a prosthetic mechanical heart valve (Z95.2) and severe Penicillin allergy. "
-                    "Bacteremia from planned extraction #32 carries high risk of Infective Endocarditis. "
-                    "AHA Guidelines require antibiotic prophylaxis: Clindamycin 600mg PO or Azithromycin 500mg PO 30-60 min prior to procedure."
+                    "Patient has documented Prosthetic Cardiac Valve (SNOMED: 315215002) and history of Infective Endocarditis (ICD-10: I33.0). "
+                    "AHA Guidelines mandate prophylactic antibiotic premedication 30-60 minutes prior to invasive dental manipulation (cleaning/scaling D1110)."
                 ),
                 source=CDSSource(
                     label="AHA Dental Antibiotic Prophylaxis Protocol",
@@ -120,27 +149,45 @@ async def evaluate_med_dental_risk(request: CDSHookRequest):
                 ),
                 suggestions=[
                     CDSSuggestion(
-                        label="Prescribe Azithromycin 500mg (Penicillin-Allergic Alternative)",
+                        label="Prescribe Amoxicillin 2g PO (or Clindamycin 600mg if allergic) 1 hour pre-op",
                         actions=[
                             {
                                 "type": "create",
-                                "description": "Add Azithromycin 500mg 1 hr pre-op to CareStack Rx",
+                                "description": "Add AHA Prophylaxis regimen to CareStack Rx",
                             }
                         ],
                     )
                 ],
             )
         )
+
+    # Case 4: Robert Taylor (patient-003 / MRN-10003 / CS-1003 / EHR-99342) - Uncontrolled Diabetes HbA1c 9.2%
+    elif "patient-003" in patient_id or "10003" in patient_id or "99342" in patient_id or "1003" in patient_id:
         cards.append(
             CDSCard(
-                summary="WARNING: Coagulopathy / Anticoagulated State (INR 3.2)",
+                summary="WARNING: Severe Glycemic Dysregulation (HbA1c 9.2%) — Delayed Surgical Healing",
                 indicator="warning",
-                detail="Latest INR is 3.2 (elevated therapeutic anticoagulation). Local hemostatic agents (gelatin sponge, tranexamic acid rinse, sutures) required for extraction #32.",
-                source=CDSSource(label="Hematology Lab Interoperability Stream"),
+                detail=(
+                    "Most recent HbA1c is 9.2% (LOINC: 4548-4). Markedly elevated glycemia severely impairs collagen synthesis, "
+                    "macrophage chemotaxis, and angiogenesis, causing significant post-extraction socket healing delays "
+                    "and increased susceptibility to alveolar osteitis for proposed procedure D7210."
+                ),
+                source=CDSSource(label="Endocrine-Dental Correlation Module"),
+                suggestions=[
+                    CDSSuggestion(
+                        label="Order Chlorhexidine 0.12% post-op rinse and morning surgery scheduling",
+                        actions=[
+                            {
+                                "type": "create",
+                                "description": "Add antimicrobial mouthrinse protocol to CareStack chart",
+                            }
+                        ],
+                    )
+                ],
             )
         )
 
-    # Case 3: Marcus Chen (EHR-54109 / CS-1002) - Uncontrolled Diabetes HbA1c 8.6%
+    # Case 5: Marcus Chen (EHR-54109 / CS-1002) - Uncontrolled Diabetes HbA1c 8.6%
     elif "54109" in patient_id or "1002" in patient_id:
         cards.append(
             CDSCard(
@@ -175,12 +222,12 @@ async def evaluate_prophylaxis(request: CDSHookRequest):
     patient_id = request.context.get("patientId", "")
     cards: List[CDSCard] = []
 
-    if "99342" in patient_id or "1003" in patient_id:
+    if any(k in patient_id for k in ["99342", "1003", "patient-002", "10002", "2002"]):
         cards.append(
             CDSCard(
                 summary="Antibiotic Premedication Indicated",
                 indicator="critical",
-                detail="Prosthetic cardiac valve present. Administer AHA-recommended non-penicillin regimen prior to invasive dental therapy.",
+                detail="Prosthetic cardiac valve present. Administer AHA-recommended regimen prior to invasive dental therapy.",
                 source=CDSSource(label="AHA Infective Endocarditis Guidelines"),
             )
         )
