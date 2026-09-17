@@ -47,12 +47,27 @@ export const api = {
   // FHIR R4 Medical
   getFhirMetadata: () => fetchJson('/api/fhir/metadata'),
   getFhirPatients: () => fetchJson('/api/fhir/Patient'),
+  getFhirPatient: (idOrMrn) => fetchJson(`/api/fhir/Patient/${encodeURIComponent(idOrMrn)}`),
   getFhirConditions: (patientId) =>
     fetchJson(`/api/fhir/Condition${patientId ? `?patient=${encodeURIComponent(patientId)}` : ''}`),
+  getFhirMedications: (patientId) =>
+    fetchJson(`/api/fhir/MedicationRequest${patientId ? `?patient=${encodeURIComponent(patientId)}` : ''}`),
   getFhirObservations: (patientId) =>
     fetchJson(`/api/fhir/Observation${patientId ? `?patient=${encodeURIComponent(patientId)}` : ''}`),
   getFhirAllergies: (patientId) =>
     fetchJson(`/api/fhir/AllergyIntolerance${patientId ? `?patient=${encodeURIComponent(patientId)}` : ''}`),
+
+  // FHIR ConceptMap Semantic Translation
+  translateConcept: (system, code, target) =>
+    fetchJson('/api/fhir/ConceptMap/$translate', {
+      method: 'POST',
+      body: JSON.stringify({ system, code, target }),
+    }),
+  evaluatePatientRisks: (patientId, procedureCode) =>
+    fetchJson(`/api/fhir/Patient/${encodeURIComponent(patientId)}/$evaluate-risks`, {
+      method: 'POST',
+      body: JSON.stringify(procedureCode ? { procedureCode } : {}),
+    }),
 
   // CDS Hooks
   getCdsServices: () => fetchJson('/cds-services'),
@@ -63,6 +78,39 @@ export const api = {
         hook: 'patient-view',
         hookInstance: `ui-${Date.now()}`,
         context: { patientId },
+      }),
+    }),
+  evaluateOrderSelectHook: (patientId, procedureCode) =>
+    fetchJson('/cds-services/order-select-contraindication', {
+      method: 'POST',
+      body: JSON.stringify({
+        hook: 'order-select',
+        hookInstance: `ui-order-${Date.now()}`,
+        context: { patientId, procedureCode, selections: [procedureCode] },
+      }),
+    }),
+
+  // CareStack Chart Write-Backs & Webhook Sync
+  postMedicalAlert: (patientId, alert) =>
+    fetchJson(`/api/carestack/patients/${encodeURIComponent(patientId)}/medical-alerts`, {
+      method: 'POST',
+      body: JSON.stringify(alert),
+    }),
+  getPatientMedicalAlerts: (patientId) =>
+    fetchJson(`/api/carestack/patients/${encodeURIComponent(patientId)}/medical-alerts`),
+  simulateWebhookCheckin: (patient) =>
+    fetchJson('/api/carestack/webhook', {
+      method: 'POST',
+      body: JSON.stringify({
+        event_type: 'patient.checkin',
+        patient: {
+          id: patient.id,
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          birth_date: patient.birth_date,
+          gender: patient.gender,
+          mrn: patient.mrn,
+        },
       }),
     }),
 };
