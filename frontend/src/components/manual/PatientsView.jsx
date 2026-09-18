@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { RecordImporter, toApiEntries } from './RecordImporter';
+import { InsuranceCard, InsuranceFields, emptyInsurance, hasInsurance } from '../coverage/InsuranceCard';
 
 const SECTIONS = [
   { type: 'condition', title: 'Conditions', Icon: HeartPulse, placeholder: 'e.g. atrial fibrillation' },
@@ -171,6 +172,9 @@ function DetailsForm({ chart, onSave, onCancel }) {
 function NewPatient({ onCreated, onCancel }) {
   const [form, setForm] = useState({ first_name: '', last_name: '', birth_date: '', gender: 'unknown', phone: '' });
   const [record, setRecord] = useState(null); // {text, title, entries} from the importer
+  const [insurance, setInsurance] = useState(emptyInsurance);
+  const [insurers, setInsurers] = useState([]);
+  useEffect(() => { api.getCoverageSources('US').then((r) => setInsurers(r.insurers || [])).catch(() => {}); }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -183,6 +187,7 @@ function NewPatient({ onCreated, onCancel }) {
       if (record?.text?.trim()) {
         await api.importPreviousRecord(patient.patient_id, { title: record.title, text: record.text, entries: toApiEntries(record.entries) });
       }
+      if (hasInsurance(insurance)) await api.setInsurance(patient.patient_id, insurance);
       onCreated(patient.patient_id);
     } catch (err) { setError(errText(err)); setBusy(false); }
   };
@@ -214,6 +219,11 @@ function NewPatient({ onCreated, onCancel }) {
             </button>
           );
         })()}
+      </div>
+      <div className="card">
+        <h3 className="font-display text-xl font-medium mb-1">Insurance</h3>
+        <p className="text-sm text-text-muted mb-4">Optional. Fill in whatever is known now; the rest can be added on the chart later.</p>
+        <InsuranceFields value={insurance} onChange={setInsurance} insurers={insurers} />
       </div>
       <div className="flex items-center gap-2">
         <button onClick={create} disabled={!ready || busy} className="btn-primary">
@@ -392,6 +402,8 @@ export function PatientsView({ onCheckRisk, refreshKey }) {
                 </div>
               </div>
             )}
+
+            <InsuranceCard patientId={chart.patient_id} />
 
             {/* History */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
