@@ -17,6 +17,7 @@ from backend.app.main import app
 from backend.app.config import settings
 from backend.app.services.carestack_client import (
     CareStackClient,
+    get_carestack_client,
     CareStackAuthenticationError,
     CareStackNotFoundError,
 )
@@ -24,9 +25,9 @@ from backend.app.services.carestack_client import (
 client = TestClient(app)
 
 VALID_HEADERS = {
-    "VendorKey": settings.CARESTACK_VENDOR_KEY,
-    "AccountKey": settings.CARESTACK_ACCOUNT_KEY,
-    "AccountId": settings.CARESTACK_ACCOUNT_ID,
+    "VendorKey": settings.SIMULATOR_VENDOR_KEY,
+    "AccountKey": settings.SIMULATOR_ACCOUNT_KEY,
+    "AccountId": settings.SIMULATOR_ACCOUNT_ID,
 }
 
 
@@ -41,15 +42,15 @@ def test_auth_verify_success():
     data = response.json()
     assert data["authenticated"] is True
     assert data["status"] == "authorized"
-    assert data["accountId"] == settings.CARESTACK_ACCOUNT_ID
+    assert data["accountId"] == settings.SIMULATOR_ACCOUNT_ID
 
 
 def test_auth_verify_missing_vendorkey():
     """Verify 401 Unauthorized when VendorKey is missing or wrong."""
     bad_headers = {
         "VendorKey": "wrong-vendor-key",
-        "AccountKey": settings.CARESTACK_ACCOUNT_KEY,
-        "AccountId": settings.CARESTACK_ACCOUNT_ID,
+        "AccountKey": settings.SIMULATOR_ACCOUNT_KEY,
+        "AccountId": settings.SIMULATOR_ACCOUNT_ID,
     }
     response = client.get("/api/v1.0/auth/verify", headers=bad_headers)
     assert response.status_code == 401
@@ -59,9 +60,9 @@ def test_auth_verify_missing_vendorkey():
 def test_auth_verify_missing_accountkey():
     """Verify 401 Unauthorized when AccountKey is missing or wrong."""
     bad_headers = {
-        "VendorKey": settings.CARESTACK_VENDOR_KEY,
+        "VendorKey": settings.SIMULATOR_VENDOR_KEY,
         "AccountKey": "wrong-account-key",
-        "AccountId": settings.CARESTACK_ACCOUNT_ID,
+        "AccountId": settings.SIMULATOR_ACCOUNT_ID,
     }
     response = client.get("/api/v1.0/auth/verify", headers=bad_headers)
     assert response.status_code == 401
@@ -71,8 +72,8 @@ def test_auth_verify_missing_accountkey():
 def test_auth_verify_missing_accountid():
     """Verify 401 Unauthorized when AccountId is missing or wrong."""
     bad_headers = {
-        "VendorKey": settings.CARESTACK_VENDOR_KEY,
-        "AccountKey": settings.CARESTACK_ACCOUNT_KEY,
+        "VendorKey": settings.SIMULATOR_VENDOR_KEY,
+        "AccountKey": settings.SIMULATOR_ACCOUNT_KEY,
         "AccountId": "wrong-account-id",
     }
     response = client.get("/api/v1.0/auth/verify", headers=bad_headers)
@@ -290,7 +291,7 @@ def test_locations_and_operatories():
 @pytest.mark.anyio
 async def test_carestack_client_service():
     """Verify CareStackClient executes authenticated requests via ASGITransport."""
-    cs_client = CareStackClient(app=app)
+    cs_client = get_carestack_client()
 
     # Search patients
     results = await cs_client.search_patients("John")
@@ -322,6 +323,8 @@ async def test_carestack_client_auth_failure():
     bad_client = CareStackClient(
         app=app,
         vendor_key="invalid-vendor-key",
+        account_key=settings.SIMULATOR_ACCOUNT_KEY,
+        account_id=settings.SIMULATOR_ACCOUNT_ID,
     )
     # The /auth/verify endpoint enforces validation
     with pytest.raises(CareStackAuthenticationError):

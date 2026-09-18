@@ -1,9 +1,20 @@
 """
-CareStack Dental Practice Management System (PMS) Web API V1 & Simulator.
-Implements the official CareStack Web API V1 specification from developer.carestack.com.
+Bundled CareStack Dental Practice Management System (PMS) simulator.
+
+IMPORTANT: this is a simulator, not a CareStack client. Every endpoint below serves
+synthetic data from in-memory stores; no request leaves the process. The routes are
+modeled on CareStack's publicly described Web API V1 conventions but have NOT been
+validated against a live account or the published specification at
+developer.carestack.com (partner login required), so paths and payload shapes are
+approximations pending reconciliation with the real spec.
+
+To talk to a real CareStack account instead, set USE_LIVE_CARESTACK=true with
+credentials and use `services.carestack_client.get_carestack_client()`, which targets
+this simulator in-process when live mode is off.
+
 Supports:
 1. Three-key header authentication: VendorKey, AccountKey, AccountId.
-2. Official CareStack V1 endpoints:
+2. CareStack-V1-shaped endpoints:
    - /patients, /patients/{id}, /patients/search, /patients/{id}/periodontal-charting
    - /procedure-codes, /treatments/appointment-procedures/{appointmentId}
    - /appointments, /appointments/{appointmentId}, /modify-status, /checkout, /cancel
@@ -43,6 +54,7 @@ from ..schemas.carestack import (
     SyncStatusResponse,
 )
 from ..config import settings
+from ..services.carestack_client import get_carestack_client, describe_integration_mode
 from .fhir_ehr_mock import FHIR_STORE, _calculate_similarity, _normalize_ref_id
 
 router = APIRouter()
@@ -84,15 +96,17 @@ def verify_carestack_credentials(
     enforce: bool = False,
 ) -> Dict[str, str]:
     """
-    Validates CareStack three-key API authentication headers:
+    Validates the simulator's three-key authentication headers:
     VendorKey, AccountKey, AccountId.
-    If provided or if enforcement is active, credentials must match configured keys.
+
+    These are checked against the SIMULATOR_* demo credentials, not against any real
+    CareStack secret - this gates the bundled simulator only.
     """
     # If any key is provided, validate all 3
     if vendorkey is not None or accountkey is not None or accountid is not None or enforce:
-        valid_vendor = (vendorkey == settings.CARESTACK_VENDOR_KEY)
-        valid_account_key = (accountkey == settings.CARESTACK_ACCOUNT_KEY)
-        valid_account_id = (accountid == settings.CARESTACK_ACCOUNT_ID)
+        valid_vendor = (vendorkey == settings.SIMULATOR_VENDOR_KEY)
+        valid_account_key = (accountkey == settings.SIMULATOR_ACCOUNT_KEY)
+        valid_account_id = (accountid == settings.SIMULATOR_ACCOUNT_ID)
 
         if not (valid_vendor and valid_account_key and valid_account_id):
             missing_or_invalid = []
@@ -109,9 +123,9 @@ def verify_carestack_credentials(
             )
 
     return {
-        "VendorKey": vendorkey or settings.CARESTACK_VENDOR_KEY,
-        "AccountKey": accountkey or settings.CARESTACK_ACCOUNT_KEY,
-        "AccountId": accountid or settings.CARESTACK_ACCOUNT_ID,
+        "VendorKey": vendorkey or settings.SIMULATOR_VENDOR_KEY,
+        "AccountKey": accountkey or settings.SIMULATOR_ACCOUNT_KEY,
+        "AccountId": accountid or settings.SIMULATOR_ACCOUNT_ID,
     }
 
 
@@ -1283,15 +1297,34 @@ async def get_cached_context(patient_id: str):
 
 @router.get("/status", response_model=SyncStatusResponse, tags=["MDIN Interoperability - Status"])
 async def get_carestack_status():
-    """Check connectivity and synchronization status with CareStack PMS."""
+    """Check connectivity and synchronization status with the active CareStack backend."""
+    mode = describe_integration_mode()
     return SyncStatusResponse(
         status="connected",
-        message="CareStack Interoperability Node is operational and synchronized with CareStack Web API V1.",
+        message=f"CareStack Interoperability Node is operational. {mode['description']}",
         synced_patients=len(MOCK_PATIENTS),
         last_sync_timestamp=datetime.now(timezone.utc).isoformat(),
-        carestack_connection=f"Active ({settings.CARESTACK_BASE_URL}) [Auth: VendorKey+AccountKey+AccountId]",
+        carestack_connection=f"{mode['mode']} ({mode['target']}) [Auth: VendorKey+AccountKey+AccountId]",
         ehr_connection=f"Active ({settings.FHIR_SERVER_URL})",
     )
+
+
+@router.get("/connectivity", tags=["MDIN Interoperability - Status"])
+async def check_carestack_connectivity():
+    """
+    Round-trip the configured CareStack backend through the CareStackClient.
+
+    Exercises the same client used for live integration: against a real account when
+    USE_LIVE_CARESTACK is enabled, otherwise against the bundled simulator in-process.
+    """
+    mode = describe_integration_mode()
+    result = await get_carestack_client().check_connectivity()
+    return {
+        "integration": mode,
+        "reachable": result.get("connected", False),
+        "detail": result.get("details") or result.get("error"),
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @router.post("/sync", tags=["MDIN Interoperability - Sync"])

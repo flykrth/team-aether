@@ -3,8 +3,8 @@
 ### **DSOLVE 2026** · DRISHTI · College of Engineering Trivandrum (CET)
 **Problem 6: Open Problem Statement (US / Global Dental Industry)**
 
-[![Build & Test Status](https://img.shields.io/badge/Pytest-68%2F68%20Passing-emerald?style=flat-square&logo=pytest)](file:///home/flykrth/Desktop/aether/backend/tests)
-[![CareStack Web API](https://img.shields.io/badge/CareStack%20API-v1.0%20Compliant-cyan?style=flat-square)](https://developer.carestack.com/documentation)
+[![Build & Test Status](https://img.shields.io/badge/Pytest-81%2F81%20Passing-emerald?style=flat-square&logo=pytest)](file:///home/flykrth/Desktop/aether/backend/tests)
+[![CareStack Web API](https://img.shields.io/badge/CareStack%20API-v1.0%20shaped%20(simulated)-cyan?style=flat-square)](https://developer.carestack.com/documentation)
 [![HL7 FHIR R4](https://img.shields.io/badge/HL7%20FHIR-R4%20(USCDI%20v5)-blue?style=flat-square&logo=fire)](https://hl7.org/fhir/R4/)
 [![CDS Hooks](https://img.shields.io/badge/CDS%20Hooks-v1.0%20%2F%20v2.0-orange?style=flat-square)](https://cds-hooks.hl7.org/)
 [![Regulatory Alignment](https://img.shields.io/badge/ONC%20HTI--1-DSI%20Compliant-purple?style=flat-square)](https://www.healthit.gov/topic/laws-regulation-and-policy/health-data-technology-and-interoperability-certification-program)
@@ -25,7 +25,7 @@
 | **Medical Terminologies Mapped** | ICD-10-CM, SNOMED CT, RxNorm, LOINC $\rightarrow$ ADA CDT Dental Procedure Codes |
 | **Production Web UI & Gateway** | `http://localhost:80` (or `http://localhost`) · Nginx SPA & Reverse Proxy |
 | **Backend API Endpoint** | `http://localhost:8000` · [Interactive Swagger Docs](http://localhost:8000/docs) |
-| **CareStack API Endpoint** | `http://localhost:8000/api/v1.0` (Official CareStack REST Specification) |
+| **CareStack API Endpoint** | `http://localhost:8000/api/v1.0` (CareStack-V1-shaped simulator) |
 | **Development Clinical Interface** | `http://localhost:5173` (Vite Hot-Reloading Dev Server) |
 
 ---
@@ -130,13 +130,22 @@ The **Medical-Dental Interoperability Node (MDIN)** is an open-standard, federat
 
 ### Core Engineering Pillars
 
-#### 1. CareStack Web API V1 Integration & Three-Key Header Authentication
-- **Official Specification Compliance**: Fully aligns with the official **CareStack Web API V1** OpenAPI 3.0 specification (`developer.carestack.com`).
+#### 1. CareStack Web API Integration & Three-Key Header Authentication
+
+> **Integration status.** MDIN ships a **bundled CareStack simulator** serving synthetic
+> data, and a real HTTP client (`CareStackClient`) that can target a live account.
+> The endpoint shapes are *modeled on* CareStack's publicly described Web API V1
+> conventions but have **not** been validated against a live account or the published
+> specification at `developer.carestack.com`, which requires a partner login we do not
+> have. Expect to reconcile paths and payload shapes against the real spec before
+> production use. Set `USE_LIVE_CARESTACK=true` with credentials to switch targets.
+
+- **Modeled on CareStack Web API V1**: Endpoint surface and models follow the V1 conventions described publicly; fidelity is unverified pending partner-docs access.
 - **Three-Key Header Authentication**: Secures requests using the three mandatory CareStack API headers:
   - `VendorKey`: Secret vendor authorization key
   - `AccountKey`: Secret account authorization key
   - `AccountId`: Unique account/practice identifier
-- **Official CareStack Endpoints (`/api/v1.0`)**: Supports `PatientViewModel`, `SearchRequest` $\rightarrow$ `PatientSearchResponseModel`, full-mouth periodontal probing examinations (`PeriodontalChart`), CDT procedure codes (`ProcedureCodeBasicApiResponseModel`), chairside appointments (`AppointmentDetailModel`), and incremental synchronization (`/sync/patients`, `/sync/treatment-procedures`).
+- **CareStack-V1-shaped Endpoints (`/api/v1.0`)**: Supports `PatientViewModel`, `SearchRequest` $\rightarrow$ `PatientSearchResponseModel`, full-mouth periodontal probing examinations (`PeriodontalChart`), CDT procedure codes (`ProcedureCodeBasicApiResponseModel`), chairside appointments (`AppointmentDetailModel`), and incremental synchronization (`/sync/patients`, `/sync/treatment-procedures`).
 - **Production HTTP Client (`CareStackClient`)**: Asynchronous HTTP client service (`backend/app/services/carestack_client.py`) with automatic credential header attachment and standard HTTP status code error handling (2xx, 4xx, 5xx).
 - **Bi-Directional Interoperability & Webhook Ingestion**: Listens for CareStack appointment and chairside check-in events (`patient.checkin`), executes exact MRN & probabilistic demographic matching against hospital EHR master patient indices (MPI), caches context in-memory (`SYNCED_CLINICAL_CACHE`), and writes high-priority alerts back to CareStack charts (`POST /api/carestack/patients/{id}/medical-alerts`).
 
@@ -362,7 +371,7 @@ The backend exposes fully standardized endpoints across CareStack PMS, HL7 FHIR 
 
 ### API Summary Table
 
-#### CareStack Web API V1 Official Endpoints (`/api/v1.0`)
+#### CareStack Web API V1-shaped Endpoints (`/api/v1.0`)
 All CareStack Web API V1 requests authenticate using three header keys: `VendorKey`, `AccountKey`, and `AccountId`.
 
 | Category | Method | Endpoint | Description |
@@ -427,13 +436,13 @@ curl -s http://localhost:8000/health
 ---
 
 #### 2. CareStack Web API V1 Patient Retrieval (`GET /api/v1.0/patients/{id}`)
-Demonstrates calling the official CareStack Web API V1 with the three mandatory authentication headers (`VendorKey`, `AccountKey`, `AccountId`):
+Demonstrates the three-key header authentication flow against the bundled simulator (the same client and headers are used when `USE_LIVE_CARESTACK=true` targets a real account):
 
 ```bash
 curl -s http://localhost:8000/api/v1.0/patients/2001 \
-  -H "VendorKey: carestack-vendor-key-sec-99210" \
-  -H "AccountKey: carestack-account-key-sec-88412" \
-  -H "AccountId: ACCT-101" \
+  -H "VendorKey: demo-vendor-key" \
+  -H "AccountKey: demo-account-key" \
+  -H "AccountId: demo-account-001" \
   -H "Accept: application/json"
 ```
 ```json
@@ -468,9 +477,9 @@ Searches registered dental patients using standard CareStack `SearchRequest`:
 
 ```bash
 curl -s -X POST http://localhost:8000/api/v1.0/patients/search \
-  -H "VendorKey: carestack-vendor-key-sec-99210" \
-  -H "AccountKey: carestack-account-key-sec-88412" \
-  -H "AccountId: ACCT-101" \
+  -H "VendorKey: demo-vendor-key" \
+  -H "AccountKey: demo-account-key" \
+  -H "AccountId: demo-account-001" \
   -H "Content-Type: application/json" \
   -d '{
     "SearchTerm": "Smith",
@@ -502,9 +511,9 @@ Retrieves periodontal probing pocket depths across teeth:
 
 ```bash
 curl -s http://localhost:8000/api/v1.0/patients/2001/periodontal-charting \
-  -H "VendorKey: carestack-vendor-key-sec-99210" \
-  -H "AccountKey: carestack-account-key-sec-88412" \
-  -H "AccountId: ACCT-101"
+  -H "VendorKey: demo-vendor-key" \
+  -H "AccountKey: demo-account-key" \
+  -H "AccountId: demo-account-001"
 ```
 ```json
 {
@@ -875,7 +884,7 @@ The frontend application (`frontend/src/App.jsx`) is engineered as an interactiv
 
 ## Automated Verification & Test Suite
 
-The project includes an exhaustive automated test suite written with **Pytest** and the **FastAPI TestClient**, covering **68 discrete test cases** across all phases of implementation and official CareStack Web API V1 compliance:
+The project includes an exhaustive automated test suite written with **Pytest** and the **FastAPI TestClient**, covering **81 discrete test cases** across all phases of implementation and CareStack Web API V1-shaped simulator coverage:
 
 ```bash
 # Activate virtual environment
@@ -899,7 +908,7 @@ backend/tests/test_main.py ..........                                    [ 41%]
 backend/tests/test_phase2_mdin.py ...........                            [ 57%]
 backend/tests/test_phase3_terminology.py .............                   [ 76%]
 backend/tests/test_phase4_cds_hooks.py ................                  [100%]
-======================== 68 passed, 2 warnings in 0.58s ========================
+======================== 81 passed, 1 warning in 0.87s ========================
 ```
 
 ---

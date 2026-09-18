@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 from .config import settings
 from .routers import carestack_router, fhir_router, cds_router
+from .services.carestack_client import describe_integration_mode
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -30,7 +31,9 @@ app.add_middleware(
 
 # Mount the required interoperability routers
 app.include_router(carestack_router, prefix="/api/carestack", tags=["CareStack"])
-app.include_router(carestack_router, prefix="/api/v1.0", tags=["CareStack Web API V1"])
+# Same simulator, mounted again under the CareStack-V1-shaped path so integration
+# clients can be pointed at it unchanged. Serves synthetic data, not a real account.
+app.include_router(carestack_router, prefix="/api/v1.0", tags=["CareStack Web API V1 (Simulator)"])
 app.include_router(fhir_router, prefix="/api/fhir", tags=["FHIR R4"])
 app.include_router(cds_router, prefix="/cds-services", tags=["CDS Hooks"])
 
@@ -43,10 +46,12 @@ async def root():
         "version": settings.VERSION,
         "status": "online",
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "carestack_integration": describe_integration_mode(),
         "endpoints": {
             "docs": "/docs",
             "health": "/health",
             "carestack": "/api/carestack/status",
+            "carestack_connectivity": "/api/carestack/connectivity",
             "carestack_v1": "/api/v1.0/patients",
             "fhir": "/api/fhir/metadata",
             "cds_discovery": "/cds-services",

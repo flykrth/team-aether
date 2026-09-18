@@ -36,19 +36,40 @@ try:
             "http://127.0.0.1:5173",
         ]
 
-        # CareStack Web API V1 Authentication & Integration
-        CARESTACK_BASE_URL: str = "https://brightsmiles.carestack.com"
-        CARESTACK_VENDOR_KEY: str = "carestack-vendor-key-sec-99210"
-        CARESTACK_ACCOUNT_KEY: str = "carestack-account-key-sec-88412"
-        CARESTACK_ACCOUNT_ID: str = "ACCT-101"
-        CARESTACK_API_KEY: str = "mock-carestack-api-key"
-        CARESTACK_PRACTICE_ID: str = "PRACTICE-101"
+        # --- Live CareStack account (OUTBOUND credentials) ---
+        # Real secrets. Deliberately empty by default so nothing ships in source:
+        # supply all four via environment and set USE_LIVE_CARESTACK=true to route
+        # CareStack traffic at a real account. Left unset, MDIN serves the bundled
+        # simulator instead.
+        USE_LIVE_CARESTACK: bool = False
+        CARESTACK_BASE_URL: str = ""
+        CARESTACK_VENDOR_KEY: str = ""
+        CARESTACK_ACCOUNT_KEY: str = ""
+        CARESTACK_ACCOUNT_ID: str = ""
+
+        # --- Bundled CareStack simulator (INBOUND credentials) ---
+        # Not secrets. These gate the in-memory simulator shipped for demos and
+        # tests, which holds only synthetic patient data.
+        SIMULATOR_VENDOR_KEY: str = "demo-vendor-key"
+        SIMULATOR_ACCOUNT_KEY: str = "demo-account-key"
+        SIMULATOR_ACCOUNT_ID: str = "demo-account-001"
 
         # FHIR R4 Integration
         FHIR_SERVER_URL: str = "https://hapi.fhir.org/baseR4"
 
         # CDS Hooks Service
         CDS_DISCOVERY_PATH: str = "/cds-services"
+
+        @property
+        def carestack_live_configured(self) -> bool:
+            """True when a real CareStack account is fully configured and enabled."""
+            return bool(
+                self.USE_LIVE_CARESTACK
+                and self.CARESTACK_BASE_URL
+                and self.CARESTACK_VENDOR_KEY
+                and self.CARESTACK_ACCOUNT_KEY
+                and self.CARESTACK_ACCOUNT_ID
+            )
 
 except ImportError:
     from pydantic import BaseModel, Field
@@ -72,15 +93,31 @@ except ImportError:
             "http://127.0.0.1:5173",
         ]
 
-        CARESTACK_BASE_URL: str = os.getenv("CARESTACK_BASE_URL", "https://brightsmiles.carestack.com")
-        CARESTACK_VENDOR_KEY: str = os.getenv("CARESTACK_VENDOR_KEY", "carestack-vendor-key-sec-99210")
-        CARESTACK_ACCOUNT_KEY: str = os.getenv("CARESTACK_ACCOUNT_KEY", "carestack-account-key-sec-88412")
-        CARESTACK_ACCOUNT_ID: str = os.getenv("CARESTACK_ACCOUNT_ID", "ACCT-101")
-        CARESTACK_API_KEY: str = os.getenv("CARESTACK_API_KEY", "mock-carestack-api-key")
-        CARESTACK_PRACTICE_ID: str = os.getenv("CARESTACK_PRACTICE_ID", "PRACTICE-101")
+        # Live CareStack account (OUTBOUND) - real secrets, environment only.
+        USE_LIVE_CARESTACK: bool = os.getenv("USE_LIVE_CARESTACK", "False").lower() in ("1", "true", "yes")
+        CARESTACK_BASE_URL: str = os.getenv("CARESTACK_BASE_URL", "")
+        CARESTACK_VENDOR_KEY: str = os.getenv("CARESTACK_VENDOR_KEY", "")
+        CARESTACK_ACCOUNT_KEY: str = os.getenv("CARESTACK_ACCOUNT_KEY", "")
+        CARESTACK_ACCOUNT_ID: str = os.getenv("CARESTACK_ACCOUNT_ID", "")
+
+        # Bundled simulator (INBOUND) - demo credentials, not secrets.
+        SIMULATOR_VENDOR_KEY: str = os.getenv("SIMULATOR_VENDOR_KEY", "demo-vendor-key")
+        SIMULATOR_ACCOUNT_KEY: str = os.getenv("SIMULATOR_ACCOUNT_KEY", "demo-account-key")
+        SIMULATOR_ACCOUNT_ID: str = os.getenv("SIMULATOR_ACCOUNT_ID", "demo-account-001")
 
         FHIR_SERVER_URL: str = os.getenv("FHIR_SERVER_URL", "https://hapi.fhir.org/baseR4")
         CDS_DISCOVERY_PATH: str = os.getenv("CDS_DISCOVERY_PATH", "/cds-services")
+
+        @property
+        def carestack_live_configured(self) -> bool:
+            """True when a real CareStack account is fully configured and enabled."""
+            return bool(
+                self.USE_LIVE_CARESTACK
+                and self.CARESTACK_BASE_URL
+                and self.CARESTACK_VENDOR_KEY
+                and self.CARESTACK_ACCOUNT_KEY
+                and self.CARESTACK_ACCOUNT_ID
+            )
 
 
 @lru_cache()

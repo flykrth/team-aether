@@ -1,9 +1,14 @@
 """
-CareStack Web API V1 HTTP Client Service.
-Executes HTTP requests with JSON arguments, returns JSON responses,
-and authenticates via VendorKey, AccountKey, and AccountId headers.
-Adheres to standard HTTP status codes (2xx, 4xx, 5xx) as specified
-in CareStack Developer Documentation (developer.carestack.com).
+CareStack Web API HTTP Client Service.
+Executes JSON HTTP requests authenticated with VendorKey, AccountKey, and AccountId
+headers, and maps standard HTTP status codes (2xx, 4xx, 5xx) onto typed exceptions.
+
+Scope note: the endpoint paths and payload shapes below are modeled on CareStack's
+publicly described Web API V1 conventions. They have NOT been validated against a
+live CareStack account or against the published specification at
+developer.carestack.com (which is gated behind a partner login). Treat them as a
+best-effort integration surface that will need reconciliation against the real
+specification before any production use.
 """
 
 from typing import Dict, Any, List, Optional, Union
@@ -65,7 +70,11 @@ class CareStackClient:
         timeout: float = 15.0,
         app: Optional[Any] = None,
     ):
-        self.base_url = (base_url or settings.CARESTACK_BASE_URL).rstrip("/")
+        # Falls back to a simulator placeholder so an unconfigured client still has a
+        # resolvable origin; live mode always supplies a real base_url.
+        self.base_url = (
+            base_url or settings.CARESTACK_BASE_URL or "http://carestack-simulator.local"
+        ).rstrip("/")
         self.vendor_key = vendor_key or settings.CARESTACK_VENDOR_KEY
         self.account_key = account_key or settings.CARESTACK_ACCOUNT_KEY
         self.account_id = account_id or settings.CARESTACK_ACCOUNT_ID
@@ -130,18 +139,18 @@ class CareStackClient:
         headers: Optional[Dict[str, str]] = None,
     ) -> Any:
         """Executes an authenticated HTTP request against CareStack Web API."""
-        url = f"{self.base_url}{path}"
         all_headers = self._get_headers(headers)
 
         transport = None
         if self.app is not None:
             transport = httpx.ASGITransport(app=self.app)
 
-        async with httpx.AsyncClient(timeout=self.timeout, transport=transport, base_url=self.base_url if transport else None) as client:
-            req_url = path if transport else url
+        async with httpx.AsyncClient(
+            timeout=self.timeout, transport=transport, base_url=self.base_url
+        ) as client:
             resp = await client.request(
                 method=method,
-                url=req_url,
+                url=path,
                 json=json_data,
                 params=params,
                 headers=all_headers,
@@ -281,7 +290,56 @@ class CareStackClient:
     async def check_connectivity(self) -> Dict[str, Any]:
         """Verify API credentials and connectivity."""
         try:
-            status_data = await self._request("GET", "/api/carestack/status")
+            status_data = await self._request("GET", "/api/v1.0/auth/verify")
             return {"connected": True, "details": status_data}
         except Exception as e:
             return {"connected": False, "error": str(e)}
+
+
+def get_carestack_client() -> CareStackClient:
+    """
+    Build the CareStack client for the currently configured integration mode.
+
+    Live mode (USE_LIVE_CARESTACK=true with all credentials supplied) targets the
+    real account over the network. Otherwise the identical client is pointed at the
+    bundled simulator in-process via ASGI transport, so the integration code path is
+    exercised the same way in demos as it would be against a real account.
+    """
+    if settings.carestack_live_configured:
+        return CareStackClient(
+            base_url=settings.CARESTACK_BASE_URL,
+            vendor_key=settings.CARESTACK_VENDOR_KEY,
+            account_key=settings.CARESTACK_ACCOUNT_KEY,
+            account_id=settings.CARESTACK_ACCOUNT_ID,
+        )
+
+    # Imported lazily: app imports routers, which import this module.
+    from ..main import app
+
+    return CareStackClient(
+        base_url="http://carestack-simulator.local",
+        vendor_key=settings.SIMULATOR_VENDOR_KEY,
+        account_key=settings.SIMULATOR_ACCOUNT_KEY,
+        account_id=settings.SIMULATOR_ACCOUNT_ID,
+        app=app,
+    )
+
+
+def describe_integration_mode() -> Dict[str, Any]:
+    """Report which CareStack backend is serving traffic, for status endpoints."""
+    if settings.carestack_live_configured:
+        return {
+            "mode": "live",
+            "target": settings.CARESTACK_BASE_URL,
+            "description": "Configured to target a live CareStack account over the network.",
+        }
+    return {
+        "mode": "simulator",
+        "target": "in-process bundled simulator",
+        "description": (
+            "Serving the bundled CareStack simulator with synthetic patient data. "
+            "Set USE_LIVE_CARESTACK=true and supply CARESTACK_BASE_URL, "
+            "CARESTACK_VENDOR_KEY, CARESTACK_ACCOUNT_KEY and CARESTACK_ACCOUNT_ID "
+            "to target a real account."
+        ),
+    }
