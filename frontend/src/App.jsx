@@ -38,7 +38,10 @@ function ModeSwitch({ mode, onChange }) {
 }
 
 const Wordmark = () => (
-  <span className="font-display text-[26px] font-medium tracking-tight text-ink leading-none">MDIN<span className="text-accent">.</span></span>
+  <span className="inline-flex items-center gap-2.5" aria-label="Cross-Walk">
+    <img src="/crosswalk-mark.png" alt="" className="h-8 w-auto" />
+    <span className="font-display text-[15px] font-semibold tracking-[0.22em] text-[#193141] leading-none hidden sm:inline">CROSS-WALK</span>
+  </span>
 );
 
 export function App() {
@@ -100,7 +103,9 @@ export function App() {
       <div key="manual" className="flex gap-4 lg:gap-5 animate-fade-in">
         {/* Icon rail */}
         <aside className="w-[60px] lg:w-[72px] shrink-0 sticky top-3 lg:top-5 h-[calc(100vh-1.5rem)] lg:h-[calc(100vh-2.5rem)] rounded-4xl bg-ink flex flex-col items-center py-5 gap-2">
-          <span className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-accent text-white font-display font-semibold mb-4">M</span>
+          <span className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-white mb-4" title="Cross-Walk">
+            <img src="/crosswalk-mark.png" alt="Cross-Walk" className="w-8 h-auto" />
+          </span>
           {VIEWS.map(({ id, label, Icon }) => (
             <button key={id} onClick={() => changeView(id)} title={label} aria-label={label} aria-current={view === id ? 'page' : undefined}
               className={`inline-flex items-center justify-center w-11 h-11 rounded-2xl transition-colors ${view === id ? 'bg-white text-ink' : 'text-white/50 hover:text-white hover:bg-white/10'}`}>
@@ -120,7 +125,7 @@ export function App() {
 
         <div className="flex-1 min-w-0">
           <header className="flex items-center justify-between h-14 mb-4">
-            <div className="flex items-baseline gap-3">
+            <div className="flex items-center gap-4">
               <Wordmark />
               <span className="hidden sm:inline text-sm text-text-muted">{VIEWS.find((v) => v.id === view)?.label}</span>
             </div>

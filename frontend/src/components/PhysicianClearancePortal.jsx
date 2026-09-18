@@ -385,7 +385,7 @@ export function PhysicianClearancePortal({
             </div>
             <p className="leading-relaxed">
               Clearance requests arrive via HL7 FHIR R4 <code className="font-mono text-accent-deep">CommunicationRequest</code> and{' '}
-              <code className="font-mono text-accent-deep">Task</code> payloads dispatched by the MDIN ConceptMap rule engine.
+              <code className="font-mono text-accent-deep">Task</code> payloads dispatched by Cross-Walk ConceptMap rule engine.
             </p>
           </div>
         </div>
