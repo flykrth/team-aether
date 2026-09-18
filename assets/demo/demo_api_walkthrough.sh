@@ -12,6 +12,7 @@ CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 RED='\033[0;31m'
+MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
 API_BASE="${MDIN_API_BASE:-http://localhost:8000}"
@@ -23,7 +24,7 @@ echo -e "${BOLD}${CYAN}=========================================================
 echo -e "Target API Base: ${GREEN}${API_BASE}${NC}\n"
 
 # 1. Health check
-echo -e "${BOLD}${YELLOW}[1/7] Checking System Health & Interoperability Status...${NC}"
+echo -e "${BOLD}${YELLOW}[1/9] Checking System Health & Interoperability Gateway...${NC}"
 HEALTH_RESP=$(curl -s "${API_BASE}/health" || true)
 if [ -z "$HEALTH_RESP" ]; then
   echo -e "${RED}ERROR: Unable to connect to MDIN backend at ${API_BASE}.${NC}"
@@ -34,7 +35,7 @@ echo "$HEALTH_RESP" | python3 -m json.tool || echo "$HEALTH_RESP"
 echo ""
 
 # 2. CareStack Patients
-echo -e "${BOLD}${YELLOW}[2/7] Fetching Registered CareStack Dental Patients...${NC}"
+echo -e "${BOLD}${YELLOW}[2/9] Querying Registered CareStack Dental Patients...${NC}"
 curl -s "${API_BASE}/api/carestack/patients" | python3 -c '
 import sys, json
 data = json.load(sys.stdin)
@@ -48,8 +49,8 @@ for p in data:
 '
 echo ""
 
-# 3. Webhook Check-In Simulation: John Doe
-echo -e "${BOLD}${YELLOW}[3/7] Simulating CareStack Webhook Check-In for John Doe (CS-2001)...${NC}"
+# 3. Webhook Check-In Ingestion: John Doe
+echo -e "${BOLD}${YELLOW}[3/9] Ingesting CareStack Check-In Webhook for John Doe (CS-2001)...${NC}"
 CHECKIN_RESP=$(curl -s -X POST "${API_BASE}/api/carestack/webhook" \
   -H "Content-Type: application/json" \
   -d '{
@@ -75,7 +76,7 @@ for a in res.get("alerts", []):
 echo ""
 
 # 4. FHIR ConceptMap Semantic Translation ($translate)
-echo -e "${BOLD}${YELLOW}[4/7] FHIR ConceptMap: Translating RxNorm Warfarin (855332) to Dental Alert...${NC}"
+echo -e "${BOLD}${YELLOW}[4/9] FHIR ConceptMap: Translating RxNorm Warfarin (855332) to Dental Alert...${NC}"
 curl -s -X POST "${API_BASE}/api/fhir/ConceptMap/\$translate" \
   -H "Content-Type: application/json" \
   -d '{
@@ -85,7 +86,7 @@ curl -s -X POST "${API_BASE}/api/fhir/ConceptMap/\$translate" \
 echo ""
 
 # 5. CDS Hook: order-select on Extraction (D7140) for John Doe
-echo -e "${BOLD}${YELLOW}[5/7] CDS Hook (order-select): Evaluating Extraction D7140 for John Doe...${NC}"
+echo -e "${BOLD}${YELLOW}[5/9] CDS Hook (order-select): Evaluating Extraction D7140 for John Doe...${NC}"
 CDS_RESP_1=$(curl -s -X POST "${API_BASE}/cds-services/order-select-contraindication" \
   -H "Content-Type: application/json" \
   -d '{
@@ -112,7 +113,7 @@ for c in cards:
 echo ""
 
 # 6. CDS Hook: order-select on Prophylaxis (D1110) for Jane Smith (Prosthetic Valve)
-echo -e "${BOLD}${YELLOW}[6/7] CDS Hook (order-select): Evaluating Adult Prophylaxis D1110 for Jane Smith...${NC}"
+echo -e "${BOLD}${YELLOW}[6/9] CDS Hook (order-select): Evaluating Adult Prophylaxis D1110 for Jane Smith...${NC}"
 CDS_RESP_2=$(curl -s -X POST "${API_BASE}/cds-services/order-select-contraindication" \
   -H "Content-Type: application/json" \
   -d '{
@@ -139,7 +140,7 @@ for c in cards:
 echo ""
 
 # 7. CDS Hook: patient-view on Robert Taylor (Uncontrolled Diabetes HbA1c 9.2%)
-echo -e "${BOLD}${YELLOW}[7/7] CDS Hook (patient-view): Evaluating Systemic Risk for Robert Taylor...${NC}"
+echo -e "${BOLD}${YELLOW}[7/9] CDS Hook (patient-view): Evaluating Systemic Risk for Robert Taylor...${NC}"
 CDS_RESP_3=$(curl -s -X POST "${API_BASE}/cds-services/patient-view-alert" \
   -H "Content-Type: application/json" \
   -d '{
@@ -161,7 +162,45 @@ for c in cards:
 '
 echo ""
 
+# 8. Administrative Cross-Coding: CDT D4341 to CPT 41874 for Robert Taylor
+echo -e "${BOLD}${YELLOW}[8/9] Administrative Cross-Coding: Evaluating D4341 for Medical Coverage...${NC}"
+CROSS_RESP=$(curl -s -X POST "${API_BASE}/api/billing/evaluate-claim" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_id": "CS-1003",
+    "cdt_code": "D4341"
+  }')
+echo "$CROSS_RESP" | python3 -c '
+import sys, json
+res = json.load(sys.stdin)
+print("Eligibility: " + str(res.get("is_eligible")))
+print("Dental CDT:  " + str(res.get("cdt_code")) + " (" + str(res.get("cdt_display", ""))[:35] + "...)")
+print("Medical CPT: " + str(res.get("suggested_cpt")) + " (" + str(res.get("cpt_display", "")) + ")")
+print("Coverage:    $" + str(res.get("estimated_coverage", 0.0)))
+print("Justifying:  ICD-10 " + str(res.get("justifying_icd10", [])))
+print("CMS-1500:    Auto-Populated Box 1a: " + str(res.get("claim_preview", {}).get("insured_id")) + " | Box 24 CPT: " + str(res.get("suggested_cpt")))
+'
+echo ""
+
+# 9. Automated Letter of Medical Necessity & CareStack Document Ingestion
+echo -e "${BOLD}${YELLOW}[9/9] Generating Letter of Medical Necessity & Ingesting to CareStack...${NC}"
+LOMN_RESP=$(curl -s -X POST "${API_BASE}/api/billing/generate-and-attach-lomn" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patient_id": "CS-1003",
+    "cdt_code": "D4341"
+  }')
+echo "$LOMN_RESP" | python3 -c '
+import sys, json
+res = json.load(sys.stdin)
+print("Status:            " + str(res.get("status")).upper())
+print("CareStack Doc ID:  " + str(res.get("document_id")))
+print("Verification Hash: SHA-256 (" + str(res.get("verification_hash", ""))[:24] + "...)")
+print("Preview Excerpt:   " + str(res.get("preview_content", ""))[:120].replace("\n", " ") + "...")
+'
+echo ""
+
 echo -e "${BOLD}${GREEN}===================================================================${NC}"
-echo -e "${BOLD}${GREEN}  All 7 Demonstration Flows Executed Successfully!                 ${NC}"
+echo -e "${BOLD}${GREEN}  All 9 Demonstration Flows Executed Successfully!                 ${NC}"
 echo -e "${BOLD}${GREEN}  Open http://localhost:5173 to test in the Split-Screen Web UI.  ${NC}"
 echo -e "${BOLD}${GREEN}===================================================================${NC}"
