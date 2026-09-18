@@ -371,7 +371,7 @@ class AdministrativeCrossCodingEngine:
         Resolves patient ID against CareStack PMS and FHIR EHR, extracts active clinical
         conditions and demographics, and evaluates the cross-coding opportunity.
         """
-        from ..routers.carestack_mock import CARESTACK_PATIENT_ALIASES, MOCK_PATIENTS
+        from ..routers.carestack_mock import CARESTACK_PATIENT_ALIASES, MOCK_PATIENTS, _find_carestack_patient
         from ..routers.fhir_ehr_mock import FHIR_STORE, _normalize_ref_id
 
         # Normalize patient ID
@@ -379,7 +379,7 @@ class AdministrativeCrossCodingEngine:
         cs_id = CARESTACK_PATIENT_ALIASES.get(clean_id, clean_id.upper())
 
         # Retrieve CareStack patient demographics
-        cs_patient = next((p for p in MOCK_PATIENTS if p.id.upper() == cs_id.upper()), None)
+        cs_patient = _find_carestack_patient(patient_id) or next((p for p in MOCK_PATIENTS if p.id.upper() == cs_id.upper()), None)
         demographics: Dict[str, Any] = {}
         if cs_patient:
             demographics = {

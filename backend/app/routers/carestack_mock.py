@@ -1016,10 +1016,11 @@ class CareStackWebhookEvent(BaseModel):
 
 class MedicalAlertCreate(BaseModel):
     """High-priority medical flag payload written back into CareStack's chart."""
-    alert_type: str = Field(..., description="critical | warning | info")
-    category: str = Field(..., description="coagulation | cardiac | metabolic | allergy | pharmacology")
-    title: str = Field(..., description="Brief alert title for chairside display")
-    details: str = Field(..., description="Detailed clinical guidance and contraindications")
+    alert_type: Optional[str] = Field("critical", description="critical | warning | info")
+    category: Optional[str] = Field("coagulation", description="coagulation | cardiac | metabolic | allergy | pharmacology")
+    title: Optional[str] = Field(None, description="Brief alert title for chairside display")
+    details: Optional[str] = Field(None, description="Detailed clinical guidance and contraindications")
+    alert: Optional[str] = Field(None, description="Direct alert string alias for title/details")
     source: str = Field("MDIN Interoperability Node", description="Originating surveillance engine")
     action_required: Optional[str] = Field(None, description="Required clinician action (e.g. Pre-op antibiotic)")
 
@@ -1335,16 +1336,20 @@ async def write_medical_alert(
         raise HTTPException(status_code=404, detail=f"CareStack patient '{patient_id}' not found")
 
     alert_id = f"ALT-{uuid.uuid4().hex[:6].upper()}"
+    alert_title = alert.title or alert.alert or "CRITICAL: Clinical Alert"
+    alert_details = alert.details or alert_title
+    alert_type = alert.alert_type or ("critical" if "critical" in alert_title.lower() else "warning")
+
     alert_record = {
         "alert_id": alert_id,
         "patient_id": patient.id,
         "mrn": patient.mrn,
         "patient_name": f"{patient.first_name} {patient.last_name}",
-        "alert_type": alert.alert_type,
-        "category": alert.category,
-        "title": alert.title,
-        "details": alert.details,
-        "source": alert.source,
+        "alert_type": alert_type,
+        "category": alert.category or "coagulation",
+        "title": alert_title,
+        "details": alert_details,
+        "source": alert.source or "MDIN Interoperability Node",
         "action_required": alert.action_required,
         "status": "posted_to_chart",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1358,7 +1363,7 @@ async def write_medical_alert(
 
     return {
         "success": True,
-        "message": f"Medical alert '{alert.title}' successfully written back to CareStack chart for {patient.first_name} {patient.last_name}.",
+        "message": f"Medical alert '{alert_title}' successfully written back to CareStack chart for {patient.first_name} {patient.last_name}.",
         "alert": alert_record,
     }
 
