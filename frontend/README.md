@@ -12,10 +12,11 @@ Modern React + Vite + Tailwind CSS dashboard providing a unified clinical view c
 
 ## Key Features
 
-1. **Interoperability Topology Monitor**: Live connection status of CareStack PMS, FHIR R4 server, and CDS Hooks engine.
-2. **Dual-Panel Clinical Record Viewer**: Side-by-side comparison of CareStack proposed dental treatment plans (CDT codes like D7140, D4341) with Medical EHR diagnoses, lab values (HbA1c, INR), and allergies.
-3. **CDS Hooks Real-Time Alerts**: Automated alert cards highlighting cross-specialty contraindications (MRONJ osteonecrosis risk, AHA antibiotic prophylaxis requirements, bleeding risks).
-4. **Interactive Endpoint Tester**: One-click REST/CDS caller allowing hackathon judges to execute live API queries against `/api/carestack`, `/api/fhir`, and `/cds-services` and view formatted JSON with response latency.
+1. **Split-Screen Chairside Workspace**: CareStack dental chart on the left, live CDS decision overlay and Medical EHR trace on the right.
+2. **Interactive CDT Procedure Toolbar**: Selecting a procedure (D0120, D1110, D4341, D7140, D7210) fires the `order-select` CDS Hook against the MDIN engine in real time.
+3. **CDS Hooks Real-Time Alerts**: Cards styled by indicator (critical/warning/info) surfacing cross-specialty contraindications (bleeding risk, AHA antibiotic prophylaxis, penicillin allergy), with chairside actions to append a medical alert to the chart or request a pre-op INR consult.
+4. **Medical EHR Interoperability Trace**: Raw FHIR `Condition`, `MedicationRequest`, and `AllergyIntolerance` resources, with a toggle showing the live ConceptMap `$translate` transformation into dental alert codes.
+5. **Live Medical Alerts Banner & Webhook Sync**: Chart alerts synchronized from the external EHR, plus a one-click check-in webhook simulation.
 
 ## Local Setup
 
@@ -75,10 +76,8 @@ frontend/
 │   ├── services/
 │   │   └── api.js                 # API client for backend endpoints
 │   └── components/
-│       ├── Navbar.jsx             # Top bar with status & docs link
-│       ├── InteroperabilityDashboard.jsx # System topology card
-│       ├── PatientRecordViewer.jsx # Dual medical/dental viewer & sync
-│       ├── CdsAlertCard.jsx       # CDS Hooks card renderer
-│       └── EndpointTester.jsx     # Live API tester for judges
+│       ├── CareStackChart.jsx     # Dental chart: patient, CDT toolbar, alerts banner
+│       ├── CDSHookCard.jsx        # CDS Hooks card renderer & chairside actions
+│       └── MedicalEHRViewer.jsx   # Raw FHIR resources & ConceptMap $translate trace
 └── .env.example
 ```

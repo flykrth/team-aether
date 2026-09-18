@@ -3,7 +3,7 @@
 ### **DSOLVE 2026** · DRISHTI · College of Engineering Trivandrum (CET)
 **Problem 6: Open Problem Statement (US / Global Dental Industry)**
 
-[![Build & Test Status](https://img.shields.io/badge/Pytest-81%2F81%20Passing-emerald?style=flat-square&logo=pytest)](file:///home/flykrth/Desktop/aether/backend/tests)
+[![Build & Test Status](https://img.shields.io/badge/Pytest-81%2F81%20Passing-emerald?style=flat-square&logo=pytest)](backend/tests)
 [![CareStack Web API](https://img.shields.io/badge/CareStack%20API-v1.0%20shaped%20(simulated)-cyan?style=flat-square)](https://developer.carestack.com/documentation)
 [![HL7 FHIR R4](https://img.shields.io/badge/HL7%20FHIR-R4%20(USCDI%20v5)-blue?style=flat-square&logo=fire)](https://hl7.org/fhir/R4/)
 [![CDS Hooks](https://img.shields.io/badge/CDS%20Hooks-v1.0%20%2F%20v2.0-orange?style=flat-square)](https://cds-hooks.hl7.org/)
@@ -917,10 +917,10 @@ backend/tests/test_phase4_cds_hooks.py ................                  [100%]
 
 In accordance with the **DSOLVE 2026** submission guidelines, the repository provides comprehensive demo scripts, walkthrough guides, and pitch materials:
 
-- **Automated CLI Demo Script**: [`assets/demo/demo_api_walkthrough.sh`](file:///home/flykrth/Desktop/aether/assets/demo/demo_api_walkthrough.sh) — Run `./assets/demo/demo_api_walkthrough.sh` to execute a live, colorful terminal demonstration of all API endpoints and clinical scenarios.
-- **Live Presentation Guide**: [`assets/demo/DEMO_WALKTHROUGH.md`](file:///home/flykrth/Desktop/aether/assets/demo/DEMO_WALKTHROUGH.md) — 3–5 minute step-by-step presentation script and live demo cheat sheet.
-- **Social Pitch Video Script**: [`assets/pitch/PITCH_SCRIPT.md`](file:///home/flykrth/Desktop/aether/assets/pitch/PITCH_SCRIPT.md) — >30 second elevator pitch thesis for social video submission tagging `@Drishti` and `@CareStack`.
-- **Submission Readiness Checklist**: [`SUBMISSION_CHECKLIST.md`](file:///home/flykrth/Desktop/aether/SUBMISSION_CHECKLIST.md) — Official DSOLVE 2026 verification checklist.
+- **Automated CLI Demo Script**: [`assets/demo/demo_api_walkthrough.sh`](assets/demo/demo_api_walkthrough.sh) — Run `./assets/demo/demo_api_walkthrough.sh` to execute a live, colorful terminal demonstration of all API endpoints and clinical scenarios.
+- **Live Presentation Guide**: [`assets/demo/DEMO_WALKTHROUGH.md`](assets/demo/DEMO_WALKTHROUGH.md) — 3–5 minute step-by-step presentation script and live demo cheat sheet.
+- **Social Pitch Video Script**: [`assets/pitch/PITCH_SCRIPT.md`](assets/pitch/PITCH_SCRIPT.md) — >30 second elevator pitch thesis for social video submission tagging `@Drishti` and `@CareStack`.
+- **Submission Readiness Checklist**: [`SUBMISSION_CHECKLIST.md`](SUBMISSION_CHECKLIST.md) — Official DSOLVE 2026 verification checklist.
 
 ---
 
