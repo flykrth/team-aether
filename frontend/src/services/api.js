@@ -28,12 +28,24 @@ async function fetchJson(endpoint, options = {}) {
 export const api = {
   // Health & System
   getHealth: () => fetchJson('/health'),
+  getRoot: () => fetchJson('/'),
 
   // CareStack PMS
+  getCareStackStatus: () => fetchJson('/api/carestack/status'),
   getCareStackPatients: (query = '') =>
     fetchJson(`/api/carestack/patients${query ? `?search=${encodeURIComponent(query)}` : ''}`),
+  syncCareStack: (patientId, syncDirection = 'bidirectional') =>
+    fetchJson('/api/carestack/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        patient_id: patientId,
+        sync_direction: syncDirection,
+      }),
+    }),
 
   // FHIR R4 Medical
+  getFhirMetadata: () => fetchJson('/api/fhir/metadata'),
+  getFhirPatients: () => fetchJson('/api/fhir/Patient'),
   getFhirPatient: (idOrMrn) => fetchJson(`/api/fhir/Patient/${encodeURIComponent(idOrMrn)}`),
   getFhirConditions: (patientId) =>
     fetchJson(`/api/fhir/Condition${patientId ? `?patient=${encodeURIComponent(patientId)}` : ''}`),
@@ -52,6 +64,16 @@ export const api = {
     }),
 
   // CDS Hooks
+  getCdsServices: () => fetchJson('/cds-services'),
+  evaluateRiskHook: (patientId, serviceId = 'med-dental-risk-evaluator') =>
+    fetchJson(`/cds-services/${serviceId}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        hook: 'patient-view',
+        hookInstance: `ui-${Date.now()}`,
+        context: { patientId },
+      }),
+    }),
   evaluateOrderSelectHook: (patientId, procedureCode) =>
     fetchJson('/cds-services/order-select-contraindication', {
       method: 'POST',
