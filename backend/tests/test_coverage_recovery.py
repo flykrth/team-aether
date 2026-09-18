@@ -248,3 +248,65 @@ async def test_failed_source_fetch_is_reported_not_hidden(library):
     rows = await policy_store.refresh("US", client=client)
     assert rows[0]["ok"] is True and "HTTP 404" in rows[0]["refresh_error"]  # last good copy kept, failure shown
     assert "HTTP 404" in policy_store.status("US")[0]["error"]
+
+
+def test_ellipsis_quotes_need_every_segment_verbatim_and_in_order():
+    text = "This plan covers medically necessary oral surgery performed by a dentist, including treatment of fractures, and surgical removal of impacted teeth."
+    ok = analyst._quoted_from
+    assert ok("This plan covers medically necessary oral surgery", text)
+    assert ok("This plan covers medically necessary oral surgery ... surgical removal of impacted teeth.", text)
+    assert ok("This plan covers medically necessary oral surgery… surgical removal of impacted teeth", text)
+    assert not ok("surgical removal of impacted teeth ... This plan covers medically necessary oral surgery", text)  # wrong order
+    assert not ok("This plan covers medically necessary oral surgery ... and cosmetic veneers", text)               # one segment invented
+    assert not ok("This plan covers all dental care", text)
+    assert not ok("... teeth", text)                                                                                   # too little to mean anything
+
+
+@pytest.mark.anyio
+async def test_a_general_exception_does_not_turn_routine_care_into_a_review(library, monkeypatch):
+    """Found live: a crown for a patient on warfarin went to review because the model noticed the payer's general exception."""
+    patient_registry.add_history_entries(library, [{"type": "medication", "text": "warfarin"}])
+    exception = {"in": "Removal of Impacted Teeth", "kind": "supports", "requirement": "may be covered under some plans",
+                 "quote": "The removal of bone-impacted teeth may be covered under some Testcare medical plans.",
+                 "applies_to_case": True, "met": "unknown"}
+    exclusion = {"in": "Policy Limitations and Exclusions", "kind": "excludes", "requirement": "routine crowns are excluded",
+                 "quote": "are generally excluded from coverage", "applies_to_case": True, "met": "unknown"}
+    result = await analyst.analyze({"procedure": "crown", "patient_id": library, "clinical_note": "Fractured cusp, needs a crown."},
+                                   client=_llm(monkeypatch, [exception, exclusion]))
+    assert result["determination"]["outcome"] == "no_pathway"
+    assert "record that and run the check again" in result["determination"]["reason"]
+    # ...but the moment staff record a real indication, the same supporting language is weighed normally
+    flagged = await analyst.analyze({"procedure": "crown", "patient_id": library, "clinical_note": "Fractured cusp.", "flags": {"trauma": True}},
+                                    client=_llm(monkeypatch, [exception, exclusion]))
+    assert flagged["determination"]["outcome"] == "needs_review"
+
+
+def _crit(kind, met, heading, source="pol", plan=False, **extra):
+    return {"kind": kind, "met": met, "applies_to_case": True, "requirement": "r", "quote": "q", "fact": None, "negates_pathway": True,
+            "source": {"id": source, "heading": heading, "is_member_plan": plan}, **extra}
+
+
+def test_routes_are_alternatives_one_fully_met_route_is_enough():
+    """Found live on a patient with a medical history: the 'integral to medical procedure' route surfaced with an unanswered
+    condition and dragged a fully met 'impacted teeth' route into review."""
+    plan_dependent = {"pathway": "plan_dependent", "categories": []}
+    met_route = _crit("supports", "yes", "Removal of Impacted Teeth")
+    other_route = _crit("supports", "unknown", "Dental Services Integral to Medical Procedures")
+    assert analyst.determine([met_route, other_route], plan_dependent, False, True, True)["outcome"] == "potential_pathway"
+    # ...but a route is only satisfied when ALL of its own conditions are met
+    same_route_gap = _crit("supports", "unknown", "Removal of Impacted Teeth")
+    assert analyst.determine([met_route, same_route_gap], plan_dependent, False, True, True)["outcome"] == "needs_review"
+    assert analyst.determine([_crit("supports", "no", "Removal of Impacted Teeth")], plan_dependent, False, True, True)["outcome"] == "no_pathway"
+
+
+def test_exclusions_block_unless_clearly_about_another_route():
+    plan_dependent = {"pathway": "plan_dependent", "categories": []}
+    met_route = _crit("supports", "yes", "Removal of Impacted Teeth")
+    doubtful = _crit("excludes", "unknown", "Policy Limitations")                      # negates_pathway defaults to True
+    unrelated = _crit("excludes", "unknown", "Dental Services Not Integral", negates_pathway=False)
+    same_section = _crit("excludes", "unknown", "Removal of Impacted Teeth", negates_pathway=False)
+    from_plan = _crit("excludes", "unknown", "Exclusions", source="plan:x", plan=True, negates_pathway=False)
+    assert analyst.determine([met_route, doubtful], plan_dependent, False, True, True)["outcome"] == "needs_review"
+    assert analyst.determine([met_route, unrelated], plan_dependent, False, True, True)["outcome"] == "potential_pathway"
+    assert analyst.determine([met_route, same_section], plan_dependent, False, True, True)["outcome"] == "needs_review"
+    assert analyst.determine([met_route, from_plan], plan_dependent, True, True, True)["outcome"] == "no_pathway"  # the plan always wins

@@ -23,6 +23,9 @@ node_modules/
 dist/
 build/
 coverage/
+# ...but not the Dental Coverage Recovery source code, which happens to share that name
+!backend/app/services/coverage/
+!frontend/src/components/coverage/
 .vite/
 npm-debug.log*
 yarn-debug.log*
