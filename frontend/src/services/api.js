@@ -107,4 +107,22 @@ export const api = {
         },
       }),
     }),
+
+  // Medical Cross-Coding & Claims Billing (Step 8)
+  evaluateBillingClaim: (patientId, cdtCode, conditions = null, demographics = null) =>
+    fetchJson('/api/billing/evaluate-claim', {
+      method: 'POST',
+      body: JSON.stringify({
+        patient_id: patientId,
+        cdt_code: cdtCode,
+        ...(conditions ? { conditions } : {}),
+        ...(demographics ? { demographics } : {}),
+      }),
+    }),
+  getBillingCrosswalkRules: () => fetchJson('/api/billing/crosswalk-rules'),
+  generate837P: (claim) =>
+    fetchJson('/api/billing/generate-837p', {
+      method: 'POST',
+      body: JSON.stringify(claim),
+    }),
 };

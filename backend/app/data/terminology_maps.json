@@ -1,145 +1,403 @@
-{
-  "resourceType": "ConceptMap",
-  "id": "medical-to-dental-contraindications",
-  "url": "http://carestack.com/fhir/ConceptMap/medical-to-dental-contraindications",
-  "version": "1.0.0",
-  "name": "MedicalToDentalContraindications",
-  "title": "Medical Diagnoses, Medications, and Allergies to Dental Clinical Alerts",
-  "status": "active",
-  "experimental": false,
-  "date": "2026-09-18",
-  "publisher": "Medical-Dental Interoperability Node (MDIN)",
-  "description": "Translates ICD-10-CM, SNOMED-CT, and RxNorm coded medical conditions, medications, and allergies into dental clinical decision support alerts using FHIR R4 $translate operation semantics.",
-  "sourceUri": "http://hl7.org/fhir/sid/icd-10-cm-and-snomed",
-  "targetUri": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
-  "group": [
-    {
-      "source": "http://hl7.org/fhir/sid/icd-10-cm",
-      "target": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
-      "element": [
-        {
-          "code": "I48.91",
-          "display": "Unspecified atrial fibrillation",
-          "target": [
-            {
-              "code": "BLEED_RISK_ELEVATED",
-              "display": "Elevated bleeding risk, evaluate anticoagulants",
-              "equivalence": "relatedto"
-            }
-          ]
-        },
-        {
-          "code": "M81.0",
-          "display": "Age-related osteoporosis without current pathological fracture",
-          "target": [
-            {
-              "code": "MRONJ_RISK_ELEVATED",
-              "display": "Osteonecrosis of jaw risk with antiresorptive therapy",
-              "equivalence": "relatedto"
-            }
-          ]
-        },
-        {
-          "code": "E11.9",
-          "display": "Type 2 diabetes mellitus without complications",
-          "target": [
-            {
-              "code": "DELAYED_HEALING_RISK",
-              "display": "Periodontal impairment risk, verify recent HbA1c",
-              "equivalence": "narrower"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "source": "http://www.nlm.nih.gov/research/umls/rxnorm",
-      "target": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
-      "element": [
-        {
-          "code": "855332",
-          "display": "Warfarin Sodium 5 MG Oral Tablet",
-          "target": [
-            {
-              "code": "ACTIVE_ANTICOAGULANT",
-              "display": "Active anticoagulant therapy, mandatory INR monitoring",
-              "equivalence": "equivalent"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "source": "http://snomed.info/sct",
-      "target": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
-      "element": [
-        {
-          "code": "315215002",
-          "display": "Prosthetic cardiac valve present",
-          "target": [
-            {
-              "code": "AHA_PROPHYLAXIS_REQUIRED",
-              "display": "Mandates AHA antibiotic prophylaxis protocol",
-              "equivalence": "wider"
-            }
-          ]
-        },
-        {
-          "code": "70618001",
-          "display": "Allergy to penicillin",
-          "target": [
-            {
-              "code": "CONTRAINDICATION_PENICILLIN",
-              "display": "Avoid Amoxicillin; suggest Clindamycin / Azithromycin",
-              "equivalence": "equivalent"
-            }
-          ]
-        },
-        {
-          "code": "73211009",
-          "display": "Diabetes mellitus type 2",
-          "target": [
-            {
-              "code": "DELAYED_HEALING_RISK",
-              "display": "Periodontal impairment risk, verify recent HbA1c",
-              "equivalence": "narrower"
-            }
-          ]
-        },
-        {
-          "code": "44054006",
-          "display": "Type 2 diabetes mellitus",
-          "target": [
-            {
-              "code": "DELAYED_HEALING_RISK",
-              "display": "Periodontal impairment risk, verify recent HbA1c",
-              "equivalence": "narrower"
-            }
-          ]
-        },
-        {
-          "code": "64859006",
-          "display": "Osteoporosis",
-          "target": [
-            {
-              "code": "MRONJ_RISK_ELEVATED",
-              "display": "Osteonecrosis of jaw risk with antiresorptive therapy",
-              "equivalence": "relatedto"
-            }
-          ]
-        },
-        {
-          "code": "300916003",
-          "display": "Latex allergy",
-          "target": [
-            {
-              "code": "ALERT_LATEX_ALLERGY",
-              "display": "Latex allergy, requires latex-free equipment",
-              "equivalence": "equivalent"
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
+[
+  {
+    "resourceType": "ConceptMap",
+    "id": "medical-to-dental-contraindications",
+    "url": "http://carestack.com/fhir/ConceptMap/medical-to-dental-contraindications",
+    "version": "1.0.0",
+    "name": "MedicalToDentalContraindications",
+    "title": "Medical Diagnoses, Medications, and Allergies to Dental Clinical Alerts",
+    "status": "active",
+    "experimental": false,
+    "date": "2026-09-18",
+    "publisher": "Medical-Dental Interoperability Node (MDIN)",
+    "description": "Translates ICD-10-CM, SNOMED-CT, and RxNorm coded medical conditions, medications, and allergies into dental clinical decision support alerts using FHIR R4 $translate operation semantics.",
+    "sourceUri": "http://hl7.org/fhir/sid/icd-10-cm-and-snomed",
+    "targetUri": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
+    "group": [
+      {
+        "source": "http://hl7.org/fhir/sid/icd-10-cm",
+        "target": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
+        "element": [
+          {
+            "code": "I48.91",
+            "display": "Unspecified atrial fibrillation",
+            "target": [
+              {
+                "code": "BLEED_RISK_ELEVATED",
+                "display": "Elevated bleeding risk, evaluate anticoagulants",
+                "equivalence": "relatedto"
+              }
+            ]
+          },
+          {
+            "code": "M81.0",
+            "display": "Age-related osteoporosis without current pathological fracture",
+            "target": [
+              {
+                "code": "MRONJ_RISK_ELEVATED",
+                "display": "Osteonecrosis of jaw risk with antiresorptive therapy",
+                "equivalence": "relatedto"
+              }
+            ]
+          },
+          {
+            "code": "E11.9",
+            "display": "Type 2 diabetes mellitus without complications",
+            "target": [
+              {
+                "code": "DELAYED_HEALING_RISK",
+                "display": "Periodontal impairment risk, verify recent HbA1c",
+                "equivalence": "narrower"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "source": "http://www.nlm.nih.gov/research/umls/rxnorm",
+        "target": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
+        "element": [
+          {
+            "code": "855332",
+            "display": "Warfarin Sodium 5 MG Oral Tablet",
+            "target": [
+              {
+                "code": "ACTIVE_ANTICOAGULANT",
+                "display": "Active anticoagulant therapy, mandatory INR monitoring",
+                "equivalence": "equivalent"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "source": "http://snomed.info/sct",
+        "target": "http://carestack.com/fhir/ValueSet/dental-clinical-alerts",
+        "element": [
+          {
+            "code": "315215002",
+            "display": "Prosthetic cardiac valve present",
+            "target": [
+              {
+                "code": "AHA_PROPHYLAXIS_REQUIRED",
+                "display": "Mandates AHA antibiotic prophylaxis protocol",
+                "equivalence": "wider"
+              }
+            ]
+          },
+          {
+            "code": "70618001",
+            "display": "Allergy to penicillin",
+            "target": [
+              {
+                "code": "CONTRAINDICATION_PENICILLIN",
+                "display": "Avoid Amoxicillin; suggest Clindamycin / Azithromycin",
+                "equivalence": "equivalent"
+              }
+            ]
+          },
+          {
+            "code": "73211009",
+            "display": "Diabetes mellitus type 2",
+            "target": [
+              {
+                "code": "DELAYED_HEALING_RISK",
+                "display": "Periodontal impairment risk, verify recent HbA1c",
+                "equivalence": "narrower"
+              }
+            ]
+          },
+          {
+            "code": "44054006",
+            "display": "Type 2 diabetes mellitus",
+            "target": [
+              {
+                "code": "DELAYED_HEALING_RISK",
+                "display": "Periodontal impairment risk, verify recent HbA1c",
+                "equivalence": "narrower"
+              }
+            ]
+          },
+          {
+            "code": "64859006",
+            "display": "Osteoporosis",
+            "target": [
+              {
+                "code": "MRONJ_RISK_ELEVATED",
+                "display": "Osteonecrosis of jaw risk with antiresorptive therapy",
+                "equivalence": "relatedto"
+              }
+            ]
+          },
+          {
+            "code": "300916003",
+            "display": "Latex allergy",
+            "target": [
+              {
+                "code": "ALERT_LATEX_ALLERGY",
+                "display": "Latex allergy, requires latex-free equipment",
+                "equivalence": "equivalent"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "resourceType": "ConceptMap",
+    "id": "cdt-to-cpt-crosswalk",
+    "url": "http://carestack.com/fhir/ConceptMap/cdt-to-cpt-crosswalk",
+    "version": "1.0.0",
+    "name": "CDTToCPTCrosswalk",
+    "title": "Dental Procedure Codes (CDT) to Medical Cross-Coding (CPT) with Qualifying Diagnoses (ICD-10)",
+    "status": "active",
+    "experimental": false,
+    "date": "2026-09-18",
+    "publisher": "Medical-Dental Interoperability Node (MDIN)",
+    "description": "Administrative cross-coding map translating dental CDT procedure codes to medical CPT codes with required qualifying ICD-10 medical diagnostic criteria and estimated coverage uplifts.",
+    "sourceUri": "http://www.ada.org/cdt",
+    "targetUri": "http://www.ama-assn.org/go/cpt",
+    "group": [
+      {
+        "source": "http://www.ada.org/cdt",
+        "target": "http://www.ama-assn.org/go/cpt",
+        "element": [
+          {
+            "code": "D7210",
+            "display": "Surgical removal of erupted tooth",
+            "target": [
+              {
+                "code": "41899",
+                "display": "Unlisted procedure, dentoalveolar structures",
+                "equivalence": "equivalent",
+                "qualifying_icd10": ["M26.61", "K01.1", "M27.2"],
+                "qualifying_icd10_details": [
+                  {"code": "M26.61", "display": "TMJ arthralgia"},
+                  {"code": "K01.1", "display": "Impacted teeth with cystic degeneration"},
+                  {"code": "M27.2", "display": "Inflammatory conditions of jaws"}
+                ],
+                "estimated_coverage": 925.0,
+                "estimated_coverage_min": 650.0,
+                "estimated_coverage_max": 1200.0,
+                "reimbursement_category": "Medical primary coverage eligible ($650 - $1,200 estimated coverage)",
+                "dependsOn": [
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "M26.61",
+                    "display": "TMJ arthralgia"
+                  },
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "K01.1",
+                    "display": "Impacted teeth with cystic degeneration"
+                  },
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "M27.2",
+                    "display": "Inflammatory conditions of jaws"
+                  }
+                ]
+              },
+              {
+                "code": "21210",
+                "display": "Graft, bone; nasal, maxillary or malar",
+                "equivalence": "wider",
+                "qualifying_icd10": ["M26.61", "K01.1", "M27.2"],
+                "qualifying_icd10_details": [
+                  {"code": "M26.61", "display": "TMJ arthralgia"},
+                  {"code": "K01.1", "display": "Impacted teeth with cystic degeneration"},
+                  {"code": "M27.2", "display": "Inflammatory conditions of jaws"}
+                ],
+                "estimated_coverage": 1200.0,
+                "estimated_coverage_min": 650.0,
+                "estimated_coverage_max": 1200.0,
+                "reimbursement_category": "Medical primary coverage eligible ($650 - $1,200 estimated coverage)",
+                "dependsOn": [
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "M26.61",
+                    "display": "TMJ arthralgia"
+                  },
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "K01.1",
+                    "display": "Impacted teeth with cystic degeneration"
+                  },
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "M27.2",
+                    "display": "Inflammatory conditions of jaws"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "code": "D7240",
+            "display": "Complete bony impaction",
+            "target": [
+              {
+                "code": "41899",
+                "display": "Unlisted procedure, dentoalveolar structures",
+                "equivalence": "equivalent",
+                "qualifying_icd10": ["M26.61", "K01.1", "M27.2"],
+                "qualifying_icd10_details": [
+                  {"code": "M26.61", "display": "TMJ arthralgia"},
+                  {"code": "K01.1", "display": "Impacted teeth with cystic degeneration"},
+                  {"code": "M27.2", "display": "Inflammatory conditions of jaws"}
+                ],
+                "estimated_coverage": 925.0,
+                "estimated_coverage_min": 650.0,
+                "estimated_coverage_max": 1200.0,
+                "reimbursement_category": "Medical primary coverage eligible ($650 - $1,200 estimated coverage)",
+                "dependsOn": [
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "M26.61",
+                    "display": "TMJ arthralgia"
+                  },
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "K01.1",
+                    "display": "Impacted teeth with cystic degeneration"
+                  },
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "M27.2",
+                    "display": "Inflammatory conditions of jaws"
+                  }
+                ]
+              },
+              {
+                "code": "21210",
+                "display": "Graft, bone; nasal, maxillary or malar",
+                "equivalence": "wider",
+                "qualifying_icd10": ["M26.61", "K01.1", "M27.2"],
+                "qualifying_icd10_details": [
+                  {"code": "M26.61", "display": "TMJ arthralgia"},
+                  {"code": "K01.1", "display": "Impacted teeth with cystic degeneration"},
+                  {"code": "M27.2", "display": "Inflammatory conditions of jaws"}
+                ],
+                "estimated_coverage": 1200.0,
+                "estimated_coverage_min": 650.0,
+                "estimated_coverage_max": 1200.0,
+                "reimbursement_category": "Medical primary coverage eligible ($650 - $1,200 estimated coverage)",
+                "dependsOn": [
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "M26.61",
+                    "display": "TMJ arthralgia"
+                  },
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "K01.1",
+                    "display": "Impacted teeth with cystic degeneration"
+                  },
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "M27.2",
+                    "display": "Inflammatory conditions of jaws"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "code": "D4260",
+            "display": "Osseous surgery",
+            "target": [
+              {
+                "code": "41874",
+                "display": "Alveoloplasty with bone contouring",
+                "equivalence": "equivalent",
+                "qualifying_icd10": ["E11.9"],
+                "qualifying_icd10_details": [
+                  {"code": "E11.9", "display": "Type 2 Diabetes Mellitus exacerbating periodontal bone loss"}
+                ],
+                "estimated_coverage": 600.0,
+                "estimated_coverage_min": 400.0,
+                "estimated_coverage_max": 800.0,
+                "reimbursement_category": "Systemic complication linkage ($400 - $800 medical coverage)",
+                "dependsOn": [
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "E11.9",
+                    "display": "Type 2 Diabetes Mellitus exacerbating periodontal bone loss"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "code": "D4341",
+            "display": "Periodontal scaling",
+            "target": [
+              {
+                "code": "41874",
+                "display": "Alveoloplasty with bone contouring",
+                "equivalence": "equivalent",
+                "qualifying_icd10": ["E11.9"],
+                "qualifying_icd10_details": [
+                  {"code": "E11.9", "display": "Type 2 Diabetes Mellitus exacerbating periodontal bone loss"}
+                ],
+                "estimated_coverage": 600.0,
+                "estimated_coverage_min": 400.0,
+                "estimated_coverage_max": 800.0,
+                "reimbursement_category": "Systemic complication linkage ($400 - $800 medical coverage)",
+                "dependsOn": [
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "E11.9",
+                    "display": "Type 2 Diabetes Mellitus exacerbating periodontal bone loss"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "code": "D7286",
+            "display": "Incisional biopsy of oral tissue",
+            "target": [
+              {
+                "code": "40808",
+                "display": "Biopsy, vestibule of mouth",
+                "equivalence": "equivalent",
+                "qualifying_icd10": ["K13.21"],
+                "qualifying_icd10_details": [
+                  {"code": "K13.21", "display": "Leukoplakia of oral mucosa"}
+                ],
+                "estimated_coverage": 475.0,
+                "estimated_coverage_min": 350.0,
+                "estimated_coverage_max": 600.0,
+                "reimbursement_category": "Oral pathology biopsy coverage ($350 - $600 estimated coverage)",
+                "dependsOn": [
+                  {
+                    "property": "qualifying-icd10",
+                    "system": "http://hl7.org/fhir/sid/icd-10-cm",
+                    "value": "K13.21",
+                    "display": "Leukoplakia of oral mucosa"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

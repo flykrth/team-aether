@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 
 from .config import settings
-from .routers import carestack_router, fhir_router, cds_router
+from .routers import carestack_router, fhir_router, cds_router, billing_router
 from .services.carestack_client import describe_integration_mode
 
 app = FastAPI(
@@ -36,6 +36,7 @@ app.include_router(carestack_router, prefix="/api/carestack", tags=["CareStack"]
 app.include_router(carestack_router, prefix="/api/v1.0", tags=["CareStack Web API V1 (Simulator)"])
 app.include_router(fhir_router, prefix="/api/fhir", tags=["FHIR R4"])
 app.include_router(cds_router, prefix="/cds-services", tags=["CDS Hooks"])
+app.include_router(billing_router, prefix="/api/billing", tags=["Medical Cross-Coding & Billing"])
 
 
 @app.get("/", tags=["System"])
@@ -55,6 +56,8 @@ async def root():
             "carestack_v1": "/api/v1.0/patients",
             "fhir": "/api/fhir/metadata",
             "cds_discovery": "/cds-services",
+            "billing": "/api/billing/crosswalk-rules",
+            "evaluate_claim": "/api/billing/evaluate-claim",
         },
     }
 
