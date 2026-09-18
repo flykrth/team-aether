@@ -114,7 +114,7 @@ transcribes it. Either way the text then goes through the rule-based reader, whi
 ## 5. Where the data lives (the "which database?" answer)
 
 **Short answer: there is no traditional database server.** This is a hackathon build around a *simulated* CareStack, so
-data is kept in the simplest form that works, in four places:
+data is kept in the simplest form that works. Here is everything the app stores, and where:
 
 | What | Where it is kept | Kind of storage | Survives a restart? |
 | :--- | :--- | :--- | :--- |
