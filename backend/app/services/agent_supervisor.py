@@ -1,10 +1,11 @@
 """
-MDIN Step 14: Central Agentic Supervisor for the CareStack Multi-Agent Orchestrator (MAO).
+MDIN Steps 14-15: Central Agentic Supervisor for the CareStack Multi-Agent Orchestrator (MAO).
 
 `AgenticSupervisor` compiles a LangGraph StateGraph over the shared `MAOState` and hands the
 state between four agent nodes:
 
-    START -> intake -> risk -> (clearance if REQUIRED_PENDING) -> billing -> END
+    START -> intake_agent -> risk_agent -+-> clearance_agent -> END   (only if REQUIRED_PENDING)
+                                         +-> billing_agent   -> END   (always; parallel with clearance)
 
 It runs continuously in the background: CareStack appointment bookings / webhook events are
 queued with `submit_event`, consumed by a worker task, and every node transition is published
@@ -20,6 +21,7 @@ import logging
 import uuid
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
+from .agents import ClinicalRiskAgent, CommercialBillingAgent, IntakeAgent, MedicalClearanceAgent
 from ..models.agent_state import (
     MAOState,
     create_initial_state,
@@ -55,273 +57,14 @@ TRIGGER_EVENTS = {
     "manual.run",
 }
 
-HAZARD_ORDER = {"LOW": 0, "MODERATE": 1, "CRITICAL": 2}
-
-
-def _is_invasive(cdt_code: str) -> bool:
-    """Oral surgery (D7xxx), periodontal surgery (D42xx) and implant placement (D60xx)."""
-    code = (cdt_code or "").upper()
-    return code.startswith("D7") or code.startswith("D42") or code.startswith("D60")
-
-
-def _resource_text(resource: Dict[str, Any], field: str) -> str:
-    concept = resource.get(field) or {}
-    if concept.get("text"):
-        return concept["text"]
-    codings = concept.get("coding") or [{}]
-    return codings[0].get("display") or codings[0].get("code") or ""
-
-
-def _clearance_service():
+def route_after_risk(state: MAOState) -> List[str]:
     """
-    Lazy accessor: clearance_engine and the routers package import each other, and the cycle only
-    resolves when the routers package is loaded first (as it is under the FastAPI app).
+    Conditional fan-out: when the Risk agent demands physician clearance, the Clearance and Billing
+    agents run in parallel (same superstep); otherwise Billing runs alone.
     """
-    from .. import routers  # noqa: F401
-    from .clearance_engine import medical_clearance_service
-
-    return medical_clearance_service
-
-
-# ---------------------------------------------------------------------------
-# Agent nodes
-# ---------------------------------------------------------------------------
-
-class IntakeAgentNode:
-    """Pulls the patient's demographics and medical history into the shared state."""
-
-    name = "Intake Agent"
-    icon = "clipboard-list"
-
-    async def __call__(self, state: MAOState) -> Dict[str, Any]:
-        medical_clearance_service = _clearance_service()
-
-        patient_id = state["patient_id"]
-        info = medical_clearance_service._resolve_patient_info(patient_id)
-        found = bool(info.get("cs_patient") or info.get("fhir_patient"))
-
-        conditions = [t for t in (_resource_text(c, "code") for c in info.get("conditions", [])) if t]
-        medications = [
-            t for t in (_resource_text(m, "medicationCodeableConcept") for m in info.get("medications", [])) if t
-        ]
-        allergies = [t for t in (_resource_text(a, "code") for a in info.get("allergies", [])) if t]
-
-        entries = [{"resource": r} for key in ("conditions", "medications", "allergies") for r in info.get(key, [])]
-        if info.get("fhir_patient"):
-            entries.insert(0, {"resource": info["fhir_patient"]})
-
-        if found:
-            log = make_agent_log(
-                self.name,
-                "Linked external medical record",
-                f"Retrieved {len(conditions)} conditions, {len(medications)} medications and "
-                f"{len(allergies)} allergies from the FHIR R4 EHR.",
-                self.icon,
-            )
-        else:
-            log = make_agent_log(
-                self.name,
-                "No external medical record found",
-                f"Patient '{patient_id}' is not linked to a medical EHR; conversational intake required.",
-                self.icon,
-            )
-
-        return {
-            "patient_name": state.get("patient_name") or (info.get("name") if found else "") or "",
-            "dob": state.get("dob") or (info.get("dob") if found else "") or "",
-            "medical_records": {
-                "conditions": conditions,
-                "medications": medications,
-                "allergies": allergies,
-                "raw_fhir_bundle": {"resourceType": "Bundle", "type": "collection", "entry": entries},
-            },
-            "intake_status": "PORTAL_LINKED" if found else "PENDING",
-            "agent_logs": [log],
-        }
-
-
-class RiskAgentNode:
-    """Evaluates the scheduled CDT procedures against the patient's systemic profile."""
-
-    name = "Clinical Risk Agent"
-    icon = "shield-alert"
-
-    # (keywords, hazard when invasive, contraindication, recommendation)
-    RULES = [
-        (
-            ("warfarin", "coumadin", "apixaban", "eliquis", "rivaroxaban", "xarelto", "dabigatran", "anticoagul"),
-            "CRITICAL",
-            "Active anticoagulant therapy: post-operative hemorrhage hazard",
-            "Obtain physician clearance and a current INR before the procedure; plan local hemostatic measures.",
-        ),
-        (
-            ("clopidogrel", "plavix", "prasugrel", "ticagrelor", "stent"),
-            "CRITICAL",
-            "Antiplatelet therapy / coronary stent: ischemic and bleeding liability",
-            "Do not interrupt antiplatelet therapy without cardiology review; limit epinephrine dosing.",
-        ),
-        (
-            ("alendronate", "fosamax", "zoledronic", "reclast", "bisphosphonate", "denosumab", "prolia"),
-            "CRITICAL",
-            "Antiresorptive therapy: medication-related osteonecrosis of the jaw (MRONJ) risk",
-            "Confirm therapy duration with the prescriber and consider conservative alternatives to extraction.",
-        ),
-        (
-            ("diabetes",),
-            "MODERATE",
-            "Diabetes mellitus: impaired healing and infection risk",
-            "Verify recent HbA1c and schedule a morning appointment after a normal meal.",
-        ),
-        (
-            ("hypertension",),
-            "MODERATE",
-            "Hypertension: hemodynamic sensitivity to vasoconstrictors",
-            "Record pre-operative blood pressure and limit epinephrine-containing anesthetic.",
-        ),
-    ]
-
-    async def __call__(self, state: MAOState) -> Dict[str, Any]:
-        records = state.get("medical_records") or {}
-        appointment = dict(state.get("appointment") or {})
-        cdt_codes = appointment.get("cdt_codes") or []
-        invasive = [c for c in cdt_codes if _is_invasive(c)]
-        profile = " | ".join(records.get("conditions", []) + records.get("medications", [])).lower()
-
-        hazard = "LOW"
-        contraindications: List[str] = []
-        recommendations: List[str] = []
-        for keywords, level, contraindication, recommendation in self.RULES:
-            if not any(k in profile for k in keywords):
-                continue
-            # Systemic findings only become procedural hazards for invasive care
-            effective = level if invasive else "LOW"
-            if HAZARD_ORDER[effective] > HAZARD_ORDER[hazard]:
-                hazard = effective
-            contraindications.append(contraindication)
-            recommendations.append(recommendation)
-
-        clearance_required = hazard == "CRITICAL"
-        if clearance_required:
-            appointment["status"] = "REQUIRES_ACTION"
-
-        evaluation = {
-            "hazard_level": hazard,
-            "contraindications": contraindications,
-            "clinical_recommendations": recommendations,
-            "cdt_codes": cdt_codes,
-            "evaluated_at": utc_now_iso(),
-        }
-        log = make_agent_log(
-            self.name,
-            f"Hazard level {hazard}",
-            (
-                f"Evaluated {', '.join(cdt_codes) or 'no procedures'} against "
-                f"{len(records.get('conditions', []))} conditions / {len(records.get('medications', []))} medications. "
-                + ("Physician clearance required." if clearance_required else "No physician clearance required.")
-            ),
-            self.icon,
-        )
-        return {
-            "risk_evaluations": [evaluation],
-            "clearance_status": "REQUIRED_PENDING" if clearance_required else "NOT_REQUIRED",
-            "appointment": appointment,
-            "agent_logs": [log],
-        }
-
-
-class ClearanceAgentNode:
-    """Locates the attending physician and transmits a Digital Clearance Passport to their EHR."""
-
-    name = "Medical Clearance Agent"
-    icon = "stethoscope"
-
-    async def __call__(self, state: MAOState) -> Dict[str, Any]:
-        medical_clearance_service = _clearance_service()
-
-        cdt_codes = (state.get("appointment") or {}).get("cdt_codes") or []
-        cdt_code = next((c for c in cdt_codes if _is_invasive(c)), cdt_codes[0] if cdt_codes else "D7140")
-
-        passport = medical_clearance_service.create_clearance_passport(
-            patient_id=state["patient_id"], cdt_code=cdt_code
-        )
-        physician = passport.physician
-        log = make_agent_log(
-            self.name,
-            "Dispatched FHIR Task to physician EHR",
-            f"Clearance passport {passport.request_id} for {cdt_code} transmitted to {physician.name} "
-            f"({physician.facility_name}).",
-            self.icon,
-        )
-        return {
-            "clearance_status": "TRANSMITTED_TO_EHR",
-            "assigned_medical_md": {
-                "name": physician.name,
-                "npi": physician.npi,
-                "facility": physician.facility_name,
-                "specialty": physician.specialty,
-                "direct_endpoint": physician.fhir_endpoint,
-            },
-            "agent_logs": [log],
-        }
-
-
-class CommercialBillingAgentNode:
-    """Evaluates CDT -> CPT medical cross-coding eligibility for the scheduled procedures."""
-
-    name = "Commercial Billing Agent"
-    icon = "receipt"
-
-    async def __call__(self, state: MAOState) -> Dict[str, Any]:
-        from .crosswalk_engine import crosswalk_engine
-
-        cdt_codes = (state.get("appointment") or {}).get("cdt_codes") or []
-        best = None
-        for cdt_code in cdt_codes:
-            try:
-                opportunity = crosswalk_engine.evaluate_patient(state["patient_id"], cdt_code)
-            except Exception as exc:  # unknown patient / unmapped code is not fatal to the thread
-                logger.warning("Cross-coding evaluation failed for %s/%s: %s", state["patient_id"], cdt_code, exc)
-                continue
-            if opportunity.is_eligible and (best is None or opportunity.estimated_coverage > best.estimated_coverage):
-                best = opportunity
-
-        if best is None:
-            return {
-                "cross_bill_eligible": False,
-                "agent_logs": [
-                    make_agent_log(
-                        self.name,
-                        "No medical cross-billing opportunity",
-                        f"No qualifying ICD-10 justification for {', '.join(cdt_codes) or 'the scheduled visit'}.",
-                        self.icon,
-                    )
-                ],
-            }
-
-        return {
-            "cross_bill_eligible": True,
-            "commercial_claims": {
-                "suggested_cpt": best.suggested_cpt or "",
-                "justifying_icd10": best.justifying_icd10,
-                "estimated_savings": float(best.estimated_coverage),
-                "cms1500_ready": best.claim_preview is not None,
-                "lomn_attached": False,
-            },
-            "agent_logs": [
-                make_agent_log(
-                    self.name,
-                    f"Cross-coded {best.cdt_code} to CPT {best.suggested_cpt}",
-                    f"Justified by {', '.join(best.justifying_icd10)}; estimated medical coverage "
-                    f"${best.estimated_coverage:,.2f}.",
-                    self.icon,
-                )
-            ],
-        }
-
-
-def route_after_risk(state: MAOState) -> str:
-    """Conditional handoff: physician clearance only when the Risk agent demands it."""
-    return CLEARANCE_NODE if state.get("clearance_status") == "REQUIRED_PENDING" else BILLING_NODE
+    if state.get("clearance_status") == "REQUIRED_PENDING":
+        return [CLEARANCE_NODE, BILLING_NODE]
+    return [BILLING_NODE]
 
 
 def merge_state(state: MAOState, update: Dict[str, Any]) -> MAOState:
@@ -376,10 +119,10 @@ class AgenticSupervisor:
     def __init__(self, step_delay_seconds: float = 0.0):
         self.step_delay_seconds = step_delay_seconds
         self.nodes: Dict[str, Callable[[MAOState], Any]] = {
-            INTAKE_NODE: IntakeAgentNode(),
-            RISK_NODE: RiskAgentNode(),
-            CLEARANCE_NODE: ClearanceAgentNode(),
-            BILLING_NODE: CommercialBillingAgentNode(),
+            INTAKE_NODE: IntakeAgent(),
+            RISK_NODE: ClinicalRiskAgent(),
+            CLEARANCE_NODE: MedicalClearanceAgent(),
+            BILLING_NODE: CommercialBillingAgent(),
         }
         self.engine = "langgraph" if LANGGRAPH_AVAILABLE else "deterministic"
         self.graph = self._build_graph() if LANGGRAPH_AVAILABLE else None
@@ -400,7 +143,7 @@ class AgenticSupervisor:
         builder.add_edge(START, INTAKE_NODE)
         builder.add_edge(INTAKE_NODE, RISK_NODE)
         builder.add_conditional_edges(RISK_NODE, route_after_risk, [CLEARANCE_NODE, BILLING_NODE])
-        builder.add_edge(CLEARANCE_NODE, BILLING_NODE)
+        builder.add_edge(CLEARANCE_NODE, END)
         builder.add_edge(BILLING_NODE, END)
         return builder.compile(checkpointer=InMemorySaver())
 
@@ -413,19 +156,14 @@ class AgenticSupervisor:
             return
 
         state = thread.state
-        current = INTAKE_NODE
-        while current:
-            update = await self.nodes[current](state)
+        for name in (INTAKE_NODE, RISK_NODE):
+            update = await self.nodes[name](state)
             state = merge_state(state, update)
-            yield {current: update}
-            if current == INTAKE_NODE:
-                current = RISK_NODE
-            elif current == RISK_NODE:
-                current = route_after_risk(state)
-            elif current == CLEARANCE_NODE:
-                current = BILLING_NODE
-            else:
-                current = None
+            yield {name: update}
+        branch = route_after_risk(state)
+        updates = await asyncio.gather(*(self.nodes[name](state) for name in branch))
+        for name, update in zip(branch, updates):
+            yield {name: update}
 
     # -- execution --------------------------------------------------------
 
@@ -439,12 +177,14 @@ class AgenticSupervisor:
         trigger: str = "manual.run",
         appointment_timestamp: Optional[str] = None,
         operatory: str = "",
+        simulation: Optional[Dict[str, Any]] = None,
     ) -> SupervisorThread:
         state = create_initial_state(
             patient_id=patient_id,
             cdt_codes=cdt_codes,
             appointment_timestamp=appointment_timestamp,
             operatory=operatory,
+            simulation=simulation,
         )
         thread = SupervisorThread(patient_id, state, trigger)
         self.threads[self._key(patient_id)] = thread
@@ -485,6 +225,46 @@ class AgenticSupervisor:
     async def run(self, patient_id: str, cdt_codes: Optional[List[str]] = None, **kwargs) -> SupervisorThread:
         """Runs a full supervisor thread inline and returns it once finished."""
         return await self.run_thread(self.create_thread(patient_id, cdt_codes, **kwargs))
+
+    # -- asynchronous clearance loop (after the graph has finished) ---------
+
+    def _apply_followup(self, thread: SupervisorThread, node: str, update: Dict[str, Any]) -> None:
+        thread.state = merge_state(thread.state, update)
+        validate_state(thread.state)
+        self._publish(thread, "agent_step", node=node,
+                      data={"logs": update.get("agent_logs", []), "state": thread.state})
+
+    async def ingest_physician_response(
+        self, patient_id: str, text: str, signed_by: Optional[str] = None
+    ) -> SupervisorThread:
+        """
+        Physician reply arrives (EHR callback / portal): the Clearance agent parses it into structured
+        restrictions and clears the appointment, then the Billing agent refreshes the LOMN so it cites
+        the signed clearance.
+        """
+        thread = self.get_thread(patient_id)
+        if thread is None:
+            raise KeyError(f"No supervisor thread for patient '{patient_id}'")
+        if thread.state.get("clearance_status") != "TRANSMITTED_TO_EHR":
+            raise ValueError(
+                f"No clearance request awaiting a response (clearance_status="
+                f"{thread.state.get('clearance_status')})"
+            )
+        update = self.nodes[CLEARANCE_NODE].ingest_physician_response(thread.state, text, signed_by)
+        self._apply_followup(thread, CLEARANCE_NODE, update)
+        if thread.state["appointment"].get("status") == "CLEARED_FOR_CARE" and thread.state.get("cross_bill_eligible"):
+            self._apply_followup(thread, BILLING_NODE, await self.nodes[BILLING_NODE](thread.state))
+        return thread
+
+    def check_escalations(self, hours_since_dispatch: Optional[float] = None) -> List[SupervisorThread]:
+        """Runs the 48h escalation check over every thread awaiting a physician. Returns escalated threads."""
+        escalated = []
+        for thread in self.threads.values():
+            update = self.nodes[CLEARANCE_NODE].check_escalation(thread.state, hours_since_dispatch)
+            if update:
+                self._apply_followup(thread, CLEARANCE_NODE, update)
+                escalated.append(thread)
+        return escalated
 
     # -- background loop & event listeners ---------------------------------
 
@@ -531,6 +311,7 @@ class AgenticSupervisor:
             trigger=event_type,
             appointment_timestamp=payload.get("timestamp") or payload.get("DateTime"),
             operatory=str(payload.get("operatory") or payload.get("OperatoryId") or ""),
+            simulation=payload.get("simulation"),
         )
         if self.running and self._event_queue is not None:
             await self._event_queue.put(thread)
@@ -606,9 +387,9 @@ class AgenticSupervisor:
             "edges": [
                 ["START", INTAKE_NODE],
                 [INTAKE_NODE, RISK_NODE],
-                [RISK_NODE, f"{CLEARANCE_NODE} (clearance_status == REQUIRED_PENDING)"],
-                [RISK_NODE, f"{BILLING_NODE} (otherwise)"],
-                [CLEARANCE_NODE, BILLING_NODE],
+                [RISK_NODE, f"{CLEARANCE_NODE} (parallel branch, only if clearance_status == REQUIRED_PENDING)"],
+                [RISK_NODE, f"{BILLING_NODE} (always)"],
+                [CLEARANCE_NODE, "END"],
                 [BILLING_NODE, "END"],
             ],
             "trigger_events": sorted(TRIGGER_EVENTS),

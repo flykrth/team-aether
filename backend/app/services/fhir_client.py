@@ -24,6 +24,7 @@ PATIENT_ALIASES: Dict[str, List[str]] = {
     "patient-003": ["mrn-10003", "pat-3", "cs-1003", "cs-2003", "p3", "robert taylor"],
     "patient-004": ["mrn-10004", "pat-4", "cs-2004", "p4", "marcus chen"],
     "patient-005": ["mrn-10005", "pat-5", "cs-2005", "p5", "sarah jenkins"],
+    "patient-chen": ["mrn-99210", "pat-chen", "cs-9921", "robert chen"],
     "ehr-88201": ["cs-1001", "eleanor vance", "mronj-risk"],
     "ehr-54109": ["cs-1002", "marcus chen"],
     "ehr-99342": ["robert taylor", "heart-valve"],

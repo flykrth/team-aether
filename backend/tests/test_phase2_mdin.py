@@ -56,7 +56,7 @@ def test_synthetic_ehr_file_and_schema():
         resources_by_type.setdefault(rt, []).append(res)
 
     assert "Patient" in resources_by_type
-    assert len(resources_by_type["Patient"]) == 3
+    assert len(resources_by_type["Patient"]) == 4  # patient-001..003 + Robert Chen (patient-chen, Step 15)
 
     # Patient 1: John Doe
     p1 = next((p for p in resources_by_type["Patient"] if any(n.get("family") == "Doe" for n in p.get("name", []))), None)

@@ -107,6 +107,10 @@ CARESTACK_PATIENT_DOCUMENTS: Dict[str, List[Dict[str, Any]]] = {
 
 
 CARESTACK_PATIENT_ALIASES: Dict[str, str] = {
+    "pat-chen": "CS-9921",
+    "patient-chen": "CS-9921",
+    "mrn-99210": "CS-9921",
+    "cs-9921": "CS-9921",
     "pat-1": "CS-2001",
     "patient-001": "CS-2001",
     "patient-1": "CS-2001",
@@ -446,6 +450,29 @@ MOCK_PATIENTS: List[CareStackPatient] = [
                 tooth_number="Buccal Mucosa",
                 status="proposed",
                 cost=350.0,
+            )
+        ],
+    ),
+    # MAO demo persona: recent coronary stent on dual antiplatelet therapy (Step 15)
+    CareStackPatient(
+        id="CS-9921",
+        mrn="MRN-99210",
+        first_name="Robert",
+        last_name="Chen",
+        birth_date="1965-08-14",
+        gender="male",
+        email="robert.chen@example.com",
+        phone="555-0121",
+        last_visit="2026-02-11",
+        next_appointment="2026-09-25 10:00:00",
+        primary_dentist="Dr. Sarah Mitchell, DDS",
+        active_treatment_plan=[
+            DentalProcedure(
+                code="D7210",
+                description="Surgical removal of erupted tooth requiring removal of bone and/or sectioning of tooth",
+                tooth_number="19",
+                status="proposed",
+                cost=385.0,
             )
         ],
     ),

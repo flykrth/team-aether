@@ -36,6 +36,10 @@ class AppointmentState(BaseModel):
 
 
 class MedicalRecordsState(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    # Coded concepts ({type, system, code, display, source, onset}) backing the display strings below
+    normalized_concepts: List[Dict[str, Any]] = Field(default_factory=list)
     conditions: List[str] = Field(default_factory=list)
     medications: List[str] = Field(default_factory=list)
     allergies: List[str] = Field(default_factory=list)
@@ -51,6 +55,8 @@ class RiskEvaluation(BaseModel):
 
 
 class AssignedMedicalMD(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     name: str = ""
     npi: str = ""
     facility: str = ""
@@ -59,6 +65,8 @@ class AssignedMedicalMD(BaseModel):
 
 
 class ClearanceProtocol(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     restrictions: List[str] = Field(default_factory=list)
     hold_medications: bool = False
     inr_target: str = ""
@@ -66,6 +74,8 @@ class ClearanceProtocol(BaseModel):
 
 
 class CommercialClaims(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     suggested_cpt: str = ""
     justifying_icd10: List[str] = Field(default_factory=list)
     estimated_savings: float = 0.0
@@ -97,6 +107,8 @@ class MAOStateModel(BaseModel):
     cross_bill_eligible: bool = False
     commercial_claims: CommercialClaims = Field(default_factory=CommercialClaims)
     agent_logs: List[AgentLogEntry] = Field(default_factory=list)
+    # Optional demo inputs: intake_narrative, hours_since_dispatch, physician_response
+    simulation: Dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +135,7 @@ class MAOState(TypedDict, total=False):
     cross_bill_eligible: bool
     commercial_claims: Dict[str, Any]
     agent_logs: Annotated[List[Dict[str, Any]], operator.add]
+    simulation: Dict[str, Any]
 
 
 def utc_now_iso() -> str:
@@ -147,6 +160,7 @@ def create_initial_state(
     cdt_codes: Optional[List[str]] = None,
     appointment_timestamp: Optional[str] = None,
     operatory: str = "",
+    simulation: Optional[Dict[str, Any]] = None,
 ) -> MAOState:
     """Builds a fully-populated, validated MAOState dictionary for a new supervisor thread."""
     model = MAOStateModel(
@@ -158,6 +172,7 @@ def create_initial_state(
             operatory=operatory,
             cdt_codes=[c.upper().strip() for c in (cdt_codes or [])],
         ),
+        simulation={k: v for k, v in (simulation or {}).items() if v is not None},
     )
     return MAOState(**model.model_dump())
 

@@ -37,9 +37,9 @@ async def test_high_risk_patient_routes_through_clearance():
     assert state["clearance_status"] == "TRANSMITTED_TO_EHR"
     assert state["appointment"]["status"] == "REQUIRES_ACTION"
     assert state["assigned_medical_md"]["npi"]
-    assert [e["node"] for e in thread.events if e["type"] == "agent_step"] == [
-        "intake_agent", "risk_agent", "clearance_agent", "billing_agent",
-    ]
+    steps = [e["node"] for e in thread.events if e["type"] == "agent_step"]
+    assert steps[:2] == ["intake_agent", "risk_agent"]
+    assert sorted(steps[2:]) == ["billing_agent", "clearance_agent"]  # parallel branch, order not guaranteed
 
 
 @pytest.mark.anyio
@@ -56,7 +56,7 @@ async def test_deterministic_fallback_matches_langgraph():
     a = (await fallback.run("pat-1", ["D7140"])).state
     b = (await AgenticSupervisor().run("pat-1", ["D7140"])).state
     assert a["clearance_status"] == b["clearance_status"]
-    assert [l["agent_name"] for l in a["agent_logs"]] == [l["agent_name"] for l in b["agent_logs"]]
+    assert sorted(l["action"] for l in a["agent_logs"]) == sorted(l["action"] for l in b["agent_logs"])
 
 
 @pytest.fixture
