@@ -1,15 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  User,
-  Calendar,
   AlertOctagon,
   FileSpreadsheet,
   CheckCircle2,
   ArrowRightLeft,
   Heart,
-  Droplets,
-  Syringe,
-  Activity,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { CdsAlertCard } from './CdsAlertCard';
@@ -77,25 +72,25 @@ export function PatientRecordViewer({ patients, onSyncSuccess }) {
 
   if (!selectedPatient) {
     return (
-      <div className="p-6 text-center text-xs text-text-muted bg-app-surface rounded-lg border border-app-border">
+      <div className="card text-center text-sm text-text-muted py-10">
         Loading patient directory...
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Patient Selector Bar */}
-      <div className="bg-app-surface p-3.5 rounded-lg border border-app-border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <label htmlFor="patient-select" className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+      <div className="card p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 min-w-0">
+          <label htmlFor="patient-select" className="text-sm text-text-muted pl-2 shrink-0">
             Select Patient:
           </label>
           <select
             id="patient-select"
             value={selectedPatientId}
             onChange={(e) => setSelectedPatientId(e.target.value)}
-            className="bg-app-surface border border-app-border text-text-main text-xs rounded p-1.5 font-medium focus:outline-none focus:border-teal-500"
+            className="field md:max-w-md font-medium cursor-pointer"
           >
             {patients.map((p) => (
               <option key={p.id} value={p.id}>
@@ -109,9 +104,9 @@ export function PatientRecordViewer({ patients, onSyncSuccess }) {
           <button
             onClick={handleTriggerSync}
             disabled={syncing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-teal-500 hover:bg-teal-700 rounded shadow-xs transition-colors disabled:opacity-50"
+            className="btn-dark"
           >
-            <ArrowRightLeft className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            <ArrowRightLeft className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} strokeWidth={1.5} />
             <span>{syncing ? 'Syncing Record...' : 'Trigger EHR Reconciliation'}</span>
           </button>
         </div>
@@ -119,59 +114,61 @@ export function PatientRecordViewer({ patients, onSyncSuccess }) {
 
       {syncMessage && (
         <div
-          className={`p-2.5 rounded text-xs font-medium border flex items-center justify-between ${
+          className={`px-5 py-3.5 rounded-3xl text-sm flex items-center justify-between ${
             syncMessage.type === 'success'
-              ? 'bg-success-light text-success-dark border-success/30'
-              : 'bg-danger-light text-danger-dark border-danger/30'
+              ? 'bg-success-light text-success-dark'
+              : 'bg-danger-light text-danger-dark'
           }`}
         >
           <span>{syncMessage.text}</span>
-          <button onClick={() => setSyncMessage(null)} className="text-text-muted hover:text-text-main text-sm ml-4">
+          <button
+            onClick={() => setSyncMessage(null)}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/70 hover:bg-white text-text-secondary hover:text-text-main text-base ml-4 shrink-0"
+          >
             ×
           </button>
         </div>
       )}
 
       {/* Patient Master Demographics Header */}
-      <div className="bg-app-surface rounded-lg border border-app-border p-4 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center font-bold text-sm shrink-0 border border-teal-200">
+      <div className="card p-7">
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-accent text-white flex items-center justify-center font-display font-semibold text-lg shrink-0">
               {selectedPatient.first_name[0]}
               {selectedPatient.last_name[0]}
             </div>
             <div>
-              <h3 className="text-base font-bold text-text-main leading-tight">
+              <h3 className="display-lg text-text-main">
                 {selectedPatient.first_name} {selectedPatient.last_name}
               </h3>
-              <div className="flex flex-wrap items-center gap-2.5 text-xs text-text-secondary mt-0.5">
-                <span>DOB: <strong>{selectedPatient.birth_date}</strong></span>
-                <span className="text-text-muted">•</span>
-                <span>Gender: {selectedPatient.gender}</span>
-                <span className="text-text-muted">•</span>
-                <span>CareStack ID: <strong className="text-text-main">{selectedPatient.id}</strong></span>
-                <span className="text-text-muted">•</span>
-                <span>MRN: <strong className="text-teal-700">{selectedPatient.mrn}</strong></span>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary mt-2">
+                <span className="chip">DOB: <strong className="font-medium text-text-main tabular-nums">{selectedPatient.birth_date}</strong></span>
+                <span className="chip">Gender: {selectedPatient.gender}</span>
+                <span className="chip">CareStack ID: <strong className="font-mono font-medium text-text-main">{selectedPatient.id}</strong></span>
+                <span className="chip chip-accent">MRN: <strong className="font-mono font-medium">{selectedPatient.mrn}</strong></span>
               </div>
             </div>
           </div>
 
-          <div className="text-right text-xs">
-            <div className="text-text-muted">Primary Dentist</div>
-            <div className="font-semibold text-text-main">{selectedPatient.primary_dentist}</div>
-            <div className="text-text-secondary mt-0.5">Next Appointment: {selectedPatient.next_appointment}</div>
+          <div className="well px-5 text-sm md:text-right">
+            <div className="text-xs text-text-muted">Primary Dentist</div>
+            <div className="font-display text-base font-semibold text-text-main mt-0.5">{selectedPatient.primary_dentist}</div>
+            <div className="text-xs text-text-secondary mt-1 tabular-nums">Next Appointment: {selectedPatient.next_appointment}</div>
           </div>
         </div>
       </div>
 
       {/* CDS Hooks Real-Time Warnings */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-bold text-text-main flex items-center gap-1.5">
-            <AlertOctagon className="w-4 h-4 text-danger" />
+      <div className="card p-7">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+          <h3 className="font-display text-xl font-medium text-text-main flex items-center gap-3">
+            <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-danger-light text-danger shrink-0">
+              <AlertOctagon className="w-[18px] h-[18px]" strokeWidth={1.5} />
+            </span>
             <span>CDS Hooks v1.0 — Real-Time Clinical Decision Safety Review</span>
           </h3>
-          <span className="text-[11px] text-text-muted">
+          <span className="text-xs text-text-muted">
             Automated Cross-Specialty Risk Analysis
           </span>
         </div>
@@ -183,44 +180,44 @@ export function PatientRecordViewer({ patients, onSyncSuccess }) {
             ))}
           </div>
         ) : (
-          <div className="p-3 bg-success-light border border-success/30 rounded text-xs text-success-dark flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+          <div className="px-5 py-4 bg-success-light rounded-3xl text-sm text-success-dark flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-success shrink-0" strokeWidth={1.5} />
             <span>No contraindications detected between Medical EHR record and CareStack treatment plan.</span>
           </div>
         )}
       </div>
 
       {/* Cross-Domain Dual Panels: CareStack Dental vs. Medical EHR */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Left Panel: CareStack Dental PMS Record */}
-        <div className="bg-app-surface rounded-lg border border-app-border p-4 shadow-xs">
-          <div className="flex items-center justify-between pb-2.5 border-b border-app-border mb-3">
-            <div className="flex items-center gap-1.5">
-              <FileSpreadsheet className="w-4 h-4 text-teal-500" />
-              <h4 className="font-bold text-text-main text-xs uppercase tracking-wider">CareStack Dental Treatment Plan</h4>
+        <div className="card p-7">
+          <div className="flex items-start justify-between gap-3 mb-5">
+            <div className="flex items-center gap-3">
+              <div className="icon-disc w-10 h-10">
+                <FileSpreadsheet className="w-[18px] h-[18px]" strokeWidth={1.5} />
+              </div>
+              <h4 className="font-display text-lg font-medium text-text-main leading-tight">CareStack Dental Treatment Plan</h4>
             </div>
-            <span className="text-[10px] font-bold uppercase bg-app-bg text-text-secondary px-2 py-0.5 rounded border border-app-border">
-              Chairside Plan
-            </span>
+            <span className="chip shrink-0">Chairside Plan</span>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {selectedPatient.active_treatment_plan?.map((proc, i) => (
-              <div key={i} className="p-2.5 bg-app-bg rounded border border-app-border text-xs">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="font-mono font-bold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 mr-1.5">
+              <div key={i} className="well text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="chip chip-accent font-mono">
                       {proc.code}
                     </span>
-                    <strong className="text-text-main font-semibold">{proc.description}</strong>
+                    <strong className="font-display text-[15px] text-text-main font-semibold">{proc.description}</strong>
                   </div>
-                  <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-warning-light text-warning-dark border border-warning/30">
+                  <span className="chip bg-warning-light text-warning-dark shrink-0">
                     {proc.status}
                   </span>
                 </div>
-                <div className="mt-1.5 text-text-secondary flex justify-between text-[11px]">
+                <div className="mt-3 text-text-secondary flex justify-between text-xs">
                   <span>Tooth Target: {proc.tooth_number || 'General Area'}</span>
-                  {proc.cost && <span>Fee: ${proc.cost.toFixed(2)}</span>}
+                  {proc.cost && <span className="tabular-nums">Fee: ${proc.cost.toFixed(2)}</span>}
                 </div>
               </div>
             ))}
@@ -228,81 +225,82 @@ export function PatientRecordViewer({ patients, onSyncSuccess }) {
         </div>
 
         {/* Right Panel: Medical EHR (FHIR R4) */}
-        <div className="bg-app-surface rounded-lg border border-app-border p-4 shadow-xs">
-          <div className="flex items-center justify-between pb-2.5 border-b border-app-border mb-3">
-            <div className="flex items-center gap-1.5">
-              <Heart className="w-4 h-4 text-teal-500" />
-              <h4 className="font-bold text-text-main text-xs uppercase tracking-wider">Medical EHR Clinical Summary (FHIR R4)</h4>
+        <div className="card p-7">
+          <div className="flex items-start justify-between gap-3 mb-5">
+            <div className="flex items-center gap-3">
+              <div className="icon-disc w-10 h-10">
+                <Heart className="w-[18px] h-[18px]" strokeWidth={1.5} />
+              </div>
+              <h4 className="font-display text-lg font-medium text-text-main leading-tight">Medical EHR Clinical Summary (FHIR R4)</h4>
             </div>
-            <span className="text-[10px] font-bold uppercase bg-teal-50 text-teal-700 px-2 py-0.5 rounded border border-teal-200">
-              Hospital Record
-            </span>
+            <span className="chip chip-accent shrink-0">Hospital Record</span>
           </div>
 
           {/* Medical Diagnoses */}
-          <div className="mb-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary block mb-1">
+          <div className="mb-6">
+            <span className="text-sm text-text-muted block mb-2">
               Diagnosed Medical Conditions
             </span>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {conditions.length > 0 ? (
                 conditions.map((c) => (
-                  <div key={c.id} className="p-2 bg-app-bg rounded border border-app-border text-xs">
-                    <div className="font-semibold text-text-main">{c.code.text}</div>
-                    <div className="text-[10px] text-text-muted mt-0.5">
+                  <div key={c.id} className="well py-3.5 text-sm">
+                    <div className="font-display text-[15px] font-semibold text-text-main">{c.code.text}</div>
+                    <div className="text-xs text-text-muted mt-1 tabular-nums">
                       Onset: {c.onsetDateTime || 'Documented'}
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-xs text-text-muted italic">No chronic medical conditions recorded.</div>
+                <div className="text-sm text-text-muted">No chronic medical conditions recorded.</div>
               )}
             </div>
           </div>
 
           {/* Observations / Lab Values */}
-          <div className="mb-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary block mb-1">
+          <div className="mb-6">
+            <span className="text-sm text-text-muted block mb-2">
               Relevant Medical Observations & Labs
             </span>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {observations.length > 0 ? (
                 observations.map((o) => (
-                  <div key={o.id} className="p-2 bg-app-bg rounded border border-app-border text-xs flex justify-between items-center">
-                    <div>
-                      <div className="font-semibold text-text-main">{o.code.text}</div>
-                      <div className="text-[10px] text-text-muted">Date: {o.effectiveDateTime}</div>
+                  <div key={o.id} className="well py-3.5 text-sm flex justify-between items-center gap-4">
+                    <div className="min-w-0">
+                      <div className="font-display text-[15px] font-semibold text-text-main">{o.code.text}</div>
+                      <div className="text-xs text-text-muted mt-1 tabular-nums">Date: {o.effectiveDateTime}</div>
                     </div>
                     {o.valueQuantity && (
-                      <span className="font-mono font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                        {o.valueQuantity.value} {o.valueQuantity.unit}
+                      <span className="shrink-0 text-right leading-none">
+                        <span className="font-display text-2xl font-medium text-text-main tabular-nums">{o.valueQuantity.value}</span>{' '}
+                        <span className="text-xs text-text-muted">{o.valueQuantity.unit}</span>
                       </span>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="text-xs text-text-muted italic">No recent diagnostic lab values.</div>
+                <div className="text-sm text-text-muted">No recent diagnostic lab values.</div>
               )}
             </div>
           </div>
 
           {/* Allergies */}
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary block mb-1">
+            <span className="text-sm text-text-muted block mb-2">
               Allergies & Sensitivities
             </span>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {allergies.length > 0 ? (
                 allergies.map((a) => (
-                  <div key={a.id} className="p-2 bg-danger-light rounded border border-danger/30 text-xs">
-                    <div className="font-bold text-danger-dark">{a.code.text}</div>
-                    <div className="text-[10px] text-danger-dark font-medium mt-0.5 uppercase tracking-wide">
+                  <div key={a.id} className="flex items-center justify-between gap-3 px-4 py-3.5 bg-danger-light rounded-3xl text-sm">
+                    <div className="font-display text-[15px] font-semibold text-danger-dark">{a.code.text}</div>
+                    <span className="chip bg-white text-danger-dark shrink-0">
                       Criticality: {a.criticality || 'High'}
-                    </div>
+                    </span>
                   </div>
                 ))
               ) : (
-                <div className="text-xs text-text-muted italic">No documented drug or material allergies.</div>
+                <div className="text-sm text-text-muted">No documented drug or material allergies.</div>
               )}
             </div>
           </div>
@@ -311,4 +309,3 @@ export function PatientRecordViewer({ patients, onSyncSuccess }) {
     </div>
   );
 }
-

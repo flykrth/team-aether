@@ -23,6 +23,9 @@ class AgentEventRequest(BaseModel):
     cdt_codes: List[str] = Field(default_factory=list, description="Scheduled CDT procedure codes")
     timestamp: Optional[str] = Field(None, description="Appointment timestamp (ISO 8601)")
     operatory: Optional[str] = Field(None, description="Assigned operatory")
+    simulation: Optional[Dict[str, Any]] = Field(
+        None, description="Optional demo inputs: intake_narrative, hours_since_dispatch, physician_response"
+    )
 
 
 @router.get("/status", summary="Supervisor Status", description="Agent graph topology, engine and active threads.")

@@ -13,6 +13,17 @@
 
 ---
 
+## MAO Platform
+
+The **Multi-Agent Orchestrator (MAO)** is the agentic layer on top of MDIN. Full pitch, architecture diagrams, safety model, API reference, demo script and judge Q&A: **[docs/MAO_PLATFORM.md](docs/MAO_PLATFORM.md)**.
+
+- **Four autonomous agents** (Intake, Clinical Risk, Medical Clearance, Commercial Billing) run as a LangGraph state graph over one shared state, triggered by appointment events and streamed live over SSE (`/api/agents`). Their clinical and billing logic is deterministic rules, with no LLM call.
+- **MAO Assistant** (`/api/assistant`): one master tool-calling agent on Gemini, Groq or NVIDIA NIM with provider failover, 12 tools (5 read, 7 action), a parallel panel of three specialist models, voice input (Groq Whisper, browser dictation as fallback) and chat answers that render live widgets built from tool results.
+- **Patient records** (`/api/records`): add a patient, add medical history or import a previous record from a form panel or just by describing it in chat. Free text is coded by deterministic lexicons (ICD-10-CM, RxNorm, SNOMED CT, LOINC); unrecognized text is stored uncoded, never given an invented code.
+- **Verification**: the backend suite currently stands at 223 passing tests (`cd backend && ../.venv/bin/python -m pytest -q`). All patient data is synthetic; the CareStack and EHR sides are simulators.
+
+---
+
 ## Executive Summary
 
 | Dimension | Specification / Value |
@@ -534,6 +545,7 @@ npm run dev
 
 - **Interactive Clinical UI**: `http://localhost:5173`
 - *The Vite dev server automatically proxies all `/api`, `/cds-services`, and `/health` requests to port `8000`.*
+- *If the backend runs on another port (for example `uvicorn ... --port 8080`), set `VITE_API_BASE_URL` in `frontend/.env` to that origin, or leave it empty and set `VITE_PROXY_TARGET` to it. A mismatch shows up as 404/405 on `/api/assistant/*` and `/api/records/*`.*
 
 ---
 

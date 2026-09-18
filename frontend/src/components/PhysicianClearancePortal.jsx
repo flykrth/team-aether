@@ -20,6 +20,7 @@ import {
   AlertCircle,
   Stethoscope,
   ChevronRight,
+  ArrowUpRight,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -149,86 +150,113 @@ export function PhysicianClearancePortal({
     }
   };
 
+
+  const decisionOptions = [
+    {
+      value: 'APPROVED',
+      title: 'Approve Clearance',
+      hint: 'Standard Protocol (Hemodynamically Stable)',
+      active: 'bg-success text-white',
+      hintActive: 'text-white/80',
+    },
+    {
+      value: 'APPROVED_WITH_CONDITIONS',
+      title: 'Approve with Conditions',
+      hint: 'Specific INR / Hemostatic Protocol (Recommended)',
+      active: 'bg-accent text-white',
+      hintActive: 'text-white/80',
+    },
+    {
+      value: 'REJECTED',
+      title: 'Deny Clearance',
+      hint: 'High Risk - Reschedule Post-Stabilization',
+      active: 'bg-danger text-white',
+      hintActive: 'text-white/80',
+    },
+  ];
+
   return (
-    <div className="bg-slate-900 text-slate-100 rounded-xl shadow-2xl border border-slate-700 overflow-hidden font-sans animate-fade-in">
+    <div className="space-y-6 font-sans animate-fade-in">
       {/* Hospital EHR Top Branding Header (Epic InBasket / Cerner Message Center Simulator) */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 border-b border-slate-700/80 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-lg bg-blue-600/90 border border-blue-400/40 flex items-center justify-center text-white shadow-md shrink-0">
-            <Hospital className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
-                <span>Metropolitan Heart Center</span>
-                <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 font-medium">
-                  Provider Portal · InBasket Tasks
-                </span>
+      <div className="card-dark flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4 min-w-0">
+          <span className="icon-disc">
+            <Hospital className="w-5 h-5" strokeWidth={1.5} />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-display text-2xl font-medium tracking-tight text-white">
+                Metropolitan Heart Center
               </h1>
+              <span className="inline-flex items-center h-7 px-3 rounded-full bg-white/10 text-white/80 text-xs font-medium">
+                Provider Portal · InBasket Tasks
+              </span>
             </div>
-            <p className="text-xs text-blue-200/80 flex items-center gap-2 mt-0.5">
+            <p className="text-sm text-white/60 flex flex-wrap items-center gap-2 mt-1">
               <span>HL7 FHIR R4 Interoperability Gateway</span>
-              <span>•</span>
+              <span className="text-white/30">·</span>
               <span>CareStack PMS Inbound Bridge</span>
             </p>
           </div>
         </div>
 
         {/* Attending Physician Profile Card */}
-        <div className="flex items-center gap-3 bg-slate-800/80 border border-slate-700 px-3.5 py-2 rounded-lg text-xs shadow-inner">
-          <div className="h-8 w-8 rounded-full bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-300 font-bold">
-            <User className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="font-semibold text-slate-100 flex items-center gap-1.5">
+        <div className="flex items-center gap-3 bg-white/10 rounded-full pl-2 pr-5 py-2 shrink-0">
+          <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white text-ink shrink-0">
+            <User className="w-4 h-4" strokeWidth={1.5} />
+          </span>
+          <div className="text-xs">
+            <div className="font-display text-sm font-medium text-white flex items-center gap-2">
               <span>Dr. Kenneth Vance, MD</span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded font-mono font-bold">
-                ACTIVE
+              <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-success text-white text-[10px] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                Active
               </span>
             </div>
-            <div className="text-[11px] text-slate-400">
-              Chief of Cardiology · NPI: <span className="font-mono text-slate-300">1982341120</span>
+            <div className="text-white/60 mt-0.5">
+              Chief of Cardiology · NPI: <span className="font-mono text-white/80">1982341120</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Hospital Sub-bar / Navigation Banner */}
-      <div className="bg-slate-800/70 border-b border-slate-700/60 px-6 py-2.5 flex flex-wrap items-center justify-between text-xs gap-3">
-        <div className="flex items-center gap-3">
-          <span className="text-slate-400 font-medium">Queue:</span>
-          <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold flex items-center gap-1">
-            <Activity className="w-3.5 h-3.5" />
-            <span>Pre-Operative Dental Clearance Requests ({requests.length})</span>
-          </span>
-          {patient && (
-            <span className="text-slate-300">
-              Active Patient:{' '}
-              <strong className="text-white">
-                {patient.first_name} {patient.last_name}
-              </strong>{' '}
-              ({patient.mrn || patient.id})
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="overflow-x-auto scrollbar-none min-w-0 max-w-full">
+          <div className="flex items-center gap-2 w-max">
+            <span className="pill pill-active shrink-0">
+              <Activity className="w-4 h-4" strokeWidth={1.5} />
+              <span>Pre-Operative Dental Clearance Requests ({requests.length})</span>
             </span>
-          )}
+            {patient && (
+              <span className="pill shrink-0">
+                <span className="text-text-muted">Active Patient</span>
+                <span className="text-text-main">
+                  {patient.first_name} {patient.last_name}
+                </span>
+                <span className="font-mono text-xs text-text-muted">{patient.mrn || patient.id}</span>
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={loadClearanceRequests}
             disabled={loading}
-            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded border border-slate-600 transition-colors flex items-center gap-1 cursor-pointer"
+            className="btn-ghost bg-app-surface hover:bg-app-secondary cursor-pointer"
             title="Refresh InBasket Queue"
           >
-            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} strokeWidth={1.5} />
             <span>Refresh</span>
           </button>
           {requests.length === 0 && (
             <button
               onClick={handleAutoDispatch}
               disabled={dispatching}
-              className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="btn-primary cursor-pointer"
             >
-              <Send className="w-3 h-3" />
+              <Send className="w-4 h-4" strokeWidth={1.5} />
               <span>{dispatching ? 'Dispatching...' : 'Dispatch D7140 Clearance'}</span>
             </button>
           )}
@@ -236,27 +264,31 @@ export function PhysicianClearancePortal({
       </div>
 
       {/* Main Split Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[560px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[560px]">
         {/* Left: InBasket Task List (lg:col-span-4) */}
-        <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-700/70 bg-slate-900/60 p-4 space-y-3">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-            <span>Incoming Tasks</span>
-            <span className="text-[11px] font-mono text-blue-400">{requests.length} pending / reviewed</span>
+        <div className="lg:col-span-4 card space-y-4 self-start">
+          <div className="flex items-end justify-between gap-3">
+            <h2 className="font-display text-xl font-medium text-ink">Incoming Tasks</h2>
+            <span className="text-xs text-text-muted">
+              <span className="font-mono text-text-main">{requests.length}</span> pending / reviewed
+            </span>
           </div>
 
           {requests.length === 0 ? (
-            <div className="text-center py-12 px-4 bg-slate-800/40 rounded-lg border border-slate-700/60 text-slate-400">
-              <HeartPulse className="w-9 h-9 mx-auto text-blue-400/60 mb-2 animate-pulse" />
-              <p className="text-sm font-semibold text-slate-200">No Active Clearance Inbound Tasks</p>
-              <p className="text-xs text-slate-400 mt-1">
+            <div className="well text-center py-10 px-5">
+              <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-accent-soft text-accent mx-auto mb-4">
+                <HeartPulse className="w-6 h-6 animate-pulse" strokeWidth={1.5} />
+              </span>
+              <p className="font-display text-base font-medium text-text-main">No Active Clearance Inbound Tasks</p>
+              <p className="text-sm text-text-muted mt-2 leading-relaxed">
                 Dispatch an automated clearance passport from CareStack operatory or click below to simulate incoming extraction request.
               </p>
               <button
                 onClick={handleAutoDispatch}
                 disabled={dispatching}
-                className="mt-4 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded text-xs transition-all shadow-md inline-flex items-center gap-1.5 cursor-pointer"
+                className="btn-primary mt-5 cursor-pointer"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" strokeWidth={1.5} />
                 <span>{dispatching ? 'Synthesizing...' : 'Simulate Inbound Clearance (D7140)'}</span>
               </button>
             </div>
@@ -268,6 +300,18 @@ export function PhysicianClearancePortal({
                 const isApproved = status.includes('APPROVED');
                 const isRejected = status === 'REJECTED';
 
+                const statusClass = isApproved
+                  ? isSelected
+                    ? 'bg-success text-white'
+                    : 'bg-success-light text-success-dark'
+                  : isRejected
+                  ? isSelected
+                    ? 'bg-danger text-white'
+                    : 'bg-danger-light text-danger-dark'
+                  : isSelected
+                  ? 'bg-warning text-white'
+                  : 'bg-warning-light text-warning-dark';
+
                 return (
                   <div
                     key={req.request_id}
@@ -275,44 +319,56 @@ export function PhysicianClearancePortal({
                       setSelectedRequestId(req.request_id);
                       setConfirmationBadge(null);
                     }}
-                    className={`p-3.5 rounded-lg border text-left cursor-pointer transition-all ${
-                      isSelected
-                        ? 'bg-blue-950/70 border-blue-500/80 shadow-md ring-1 ring-blue-400/30'
-                        : 'bg-slate-800/60 border-slate-700/80 hover:bg-slate-800 hover:border-slate-600'
+                    className={`p-4 rounded-3xl text-left cursor-pointer transition-colors ${
+                      isSelected ? 'bg-ink text-white' : 'bg-app-secondary text-text-main hover:bg-app-bg'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <div className="font-semibold text-sm text-white flex items-center gap-1.5">
-                        <HeartPulse className="w-4 h-4 text-rose-400 shrink-0" />
-                        <span>{req.patient_demographics?.name || 'Patient'}</span>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="font-display text-base font-medium flex items-center gap-2 min-w-0">
+                        <HeartPulse
+                          className={`w-4 h-4 shrink-0 ${isSelected ? 'text-white/70' : 'text-danger'}`}
+                          strokeWidth={1.5}
+                        />
+                        <span className="truncate">{req.patient_demographics?.name || 'Patient'}</span>
                       </div>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border tracking-wide uppercase ${
-                          isApproved
-                            ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
-                            : isRejected
-                            ? 'bg-rose-950/80 text-rose-300 border-rose-500/40'
-                            : 'bg-amber-950/80 text-amber-300 border-amber-500/40 animate-pulse'
-                        }`}
+                        className={`inline-flex items-center h-6 px-2.5 rounded-full text-[11px] font-medium shrink-0 capitalize ${statusClass}`}
                       >
-                        {status.replace(/_/g, ' ')}
+                        {status.replace(/_/g, ' ').toLowerCase()}
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-300 mb-1 flex items-center justify-between">
-                      <span>Procedure: CDT <strong className="text-blue-300 font-mono">D7140</strong></span>
-                      <span className="text-slate-400 text-[11px] font-mono">{req.patient_demographics?.mrn || 'MRN-10001'}</span>
+                    <div
+                      className={`text-xs mb-1.5 flex items-center justify-between gap-2 ${
+                        isSelected ? 'text-white/70' : 'text-text-secondary'
+                      }`}
+                    >
+                      <span>
+                        Procedure: CDT{' '}
+                        <span className={`font-mono font-medium ${isSelected ? 'text-white' : 'text-accent'}`}>D7140</span>
+                      </span>
+                      <span className={`font-mono text-[11px] ${isSelected ? 'text-white/50' : 'text-text-muted'}`}>
+                        {req.patient_demographics?.mrn || 'MRN-10001'}
+                      </span>
                     </div>
 
-                    <div className="text-[11px] text-slate-400 line-clamp-2 italic">
+                    <div className={`text-xs line-clamp-2 leading-relaxed ${isSelected ? 'text-white/60' : 'text-text-muted'}`}>
                       "{req.clinical_justification || 'High bleeding hazard; Warfarin anticoagulation therapy review required.'}"
                     </div>
 
-                    <div className="mt-2.5 pt-2 border-t border-slate-700/60 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                      <span>Task: task-clearance-{String(req.request_id).slice(0, 8)}</span>
-                      <span className="text-blue-400 flex items-center gap-0.5">
+                    <div
+                      className={`mt-3 flex items-center justify-between gap-2 text-[11px] font-mono ${
+                        isSelected ? 'text-white/50' : 'text-text-muted'
+                      }`}
+                    >
+                      <span className="truncate">Task: task-clearance-{String(req.request_id).slice(0, 8)}</span>
+                      <span
+                        className={`inline-flex items-center gap-1 font-sans font-medium ${
+                          isSelected ? 'text-white' : 'text-accent'
+                        }`}
+                      >
                         <span>Review</span>
-                        <ChevronRight className="w-3 h-3" />
+                        <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
                       </span>
                     </div>
                   </div>
@@ -322,22 +378,23 @@ export function PhysicianClearancePortal({
           )}
 
           {/* Quick Info Box */}
-          <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-700/60 text-slate-400 text-xs">
-            <div className="font-semibold text-slate-300 flex items-center gap-1.5 mb-1">
-              <Lock className="w-3.5 h-3.5 text-blue-400" />
+          <div className="rounded-3xl bg-accent-soft p-4 text-xs text-text-secondary">
+            <div className="font-display text-sm font-medium text-accent-deep flex items-center gap-2 mb-1.5">
+              <Lock className="w-4 h-4" strokeWidth={1.5} />
               <span>Direct FHIR Clinical Endpoint</span>
             </div>
-            <p className="text-[11px] leading-relaxed">
-              Clearance requests arrive via HL7 FHIR R4 <code className="text-blue-300">CommunicationRequest</code> and <code className="text-blue-300">Task</code> payloads dispatched by the MDIN ConceptMap rule engine.
+            <p className="leading-relaxed">
+              Clearance requests arrive via HL7 FHIR R4 <code className="font-mono text-accent-deep">CommunicationRequest</code> and{' '}
+              <code className="font-mono text-accent-deep">Task</code> payloads dispatched by the MDIN ConceptMap rule engine.
             </p>
           </div>
         </div>
 
         {/* Right: Clearance Request Review Card & Interactive Decision Form (lg:col-span-8) */}
-        <div className="lg:col-span-8 p-5 sm:p-6 bg-slate-900 flex flex-col justify-between space-y-6">
+        <div className="lg:col-span-8 flex flex-col space-y-6">
           {errorMsg && (
-            <div className="p-3 rounded-lg bg-rose-950/80 border border-rose-600/50 text-rose-200 text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            <div className="rounded-3xl bg-danger-light text-danger-dark px-5 py-4 text-sm flex items-center gap-3">
+              <AlertTriangle className="w-4 h-4 text-danger shrink-0" strokeWidth={1.5} />
               <span>{errorMsg}</span>
             </div>
           )}
@@ -345,93 +402,103 @@ export function PhysicianClearancePortal({
           {selectedRequest ? (
             <div className="space-y-6">
               {/* Clearance Request Review Card */}
-              <div className="bg-slate-800/90 rounded-xl border border-slate-700 p-5 shadow-lg space-y-4">
+              <div className="card space-y-6">
                 {/* Header Row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-700/80 gap-2">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-blue-400 font-mono">
-                      INBOUND CLEARANCE PASSPORT #{String(selectedRequest.request_id).slice(0, 8)}
-                    </span>
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2 mt-0.5">
-                      <span>{selectedRequest.patient_demographics?.name || 'Patient'}</span>
-                      <span className="text-xs font-normal text-slate-400">
-                        (DOB: {selectedRequest.patient_demographics?.dob || '1968-04-12'} · MRN: {selectedRequest.patient_demographics?.mrn || 'MRN-10001'})
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <span className="eyebrow">
+                      Inbound Clearance Passport{' '}
+                      <span className="font-mono normal-case tracking-normal text-accent">
+                        #{String(selectedRequest.request_id).slice(0, 8)}
                       </span>
-                    </h2>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-slate-400 block">CareStack Requesting Facility:</span>
-                    <span className="text-xs font-semibold text-slate-200">
-                      {selectedRequest.carestack_provider?.practice_name || 'CareStack Center for Advanced Dentistry'}
                     </span>
+                    <h2 className="display-lg text-ink mt-2">
+                      {selectedRequest.patient_demographics?.name || 'Patient'}
+                    </h2>
+                    <p className="text-sm text-text-muted mt-1">
+                      DOB: {selectedRequest.patient_demographics?.dob || '1968-04-12'} · MRN:{' '}
+                      <span className="font-mono">{selectedRequest.patient_demographics?.mrn || 'MRN-10001'}</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 sm:text-right sm:flex-row-reverse">
+                    <span className="icon-btn" aria-hidden="true">
+                      <ArrowUpRight className="w-[18px] h-[18px]" strokeWidth={1.5} />
+                    </span>
+                    <div>
+                      <span className="text-xs text-text-muted block">CareStack Requesting Facility</span>
+                      <span className="text-sm font-medium text-text-main">
+                        {selectedRequest.carestack_provider?.practice_name || 'CareStack Center for Advanced Dentistry'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Procedure & Requesting Clinician Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-900/60 p-3 rounded-lg border border-slate-700/60">
-                  <div>
-                    <span className="text-slate-400 block text-[11px]">Proposed Surgical Procedure:</span>
-                    <span className="font-semibold text-blue-300 text-sm flex items-center gap-1.5 mt-0.5">
-                      <Stethoscope className="w-4 h-4 text-blue-400" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="well p-5">
+                    <span className="text-xs text-text-muted block">Proposed Surgical Procedure</span>
+                    <span className="font-display text-base font-medium text-text-main flex items-center gap-2 mt-1.5">
+                      <Stethoscope className="w-4 h-4 text-accent shrink-0" strokeWidth={1.5} />
                       <span>CDT D7140 — Surgical Extraction (Tooth #30)</span>
                     </span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                    <span className="text-xs text-text-muted block mt-1.5">
                       Scheduled: 2026-09-22 09:30 AM · Operatory 1 (Surgical)
                     </span>
                   </div>
-                  <div>
-                    <span className="text-slate-400 block text-[11px]">Requesting Dental Surgeon:</span>
-                    <span className="font-semibold text-slate-200 block mt-0.5">
+                  <div className="well p-5">
+                    <span className="text-xs text-text-muted block">Requesting Dental Surgeon</span>
+                    <span className="font-display text-base font-medium text-text-main block mt-1.5">
                       {selectedRequest.carestack_provider?.dentist_name || 'Dr. Sarah Jenkins, DDS'}
                     </span>
-                    <span className="text-[11px] text-slate-400 block font-mono">
-                      NPI: {selectedRequest.carestack_provider?.npi || '1982736450'} · Phone: {selectedRequest.carestack_provider?.phone || '(555) 019-2830'}
+                    <span className="text-xs text-text-muted block font-mono mt-1.5">
+                      NPI: {selectedRequest.carestack_provider?.npi || '1982736450'} · Phone:{' '}
+                      {selectedRequest.carestack_provider?.phone || '(555) 019-2830'}
                     </span>
                   </div>
                 </div>
 
                 {/* Clinical Rationale Banner (Active Warfarin & AFib) */}
-                <div className="p-4 rounded-lg bg-gradient-to-r from-amber-950/40 via-slate-800 to-amber-950/20 border border-amber-500/40 space-y-2">
-                  <div className="flex items-center gap-2 text-amber-300 text-xs font-bold uppercase tracking-wider">
-                    <AlertTriangle className="w-4 h-4 text-amber-400" />
-                    <span>ConceptMap Clinical Risk Rationale — Coagulation & Bleeding Hazard</span>
+                <div className="rounded-3xl bg-warning-light p-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-warning text-white shrink-0">
+                      <AlertTriangle className="w-4 h-4" strokeWidth={1.5} />
+                    </span>
+                    <span className="font-display text-base font-medium text-warning-dark">
+                      ConceptMap Clinical Risk Rationale — Coagulation &amp; Bleeding Hazard
+                    </span>
                   </div>
-                  <p className="text-xs text-slate-200 leading-relaxed">
+                  <p className="text-sm text-text-main leading-relaxed">
                     {selectedRequest.clinical_justification || (
                       <>
-                        Patient is on active <strong>Warfarin Sodium 5 MG Daily</strong> (RxNorm: 855332) for confirmed{' '}
-                        <strong>Atrial Fibrillation</strong> (ICD-10: I48.91). Scheduled surgical dental extraction carries a high
+                        Patient is on active <strong className="font-semibold">Warfarin Sodium 5 MG Daily</strong> (RxNorm: 855332) for confirmed{' '}
+                        <strong className="font-semibold">Atrial Fibrillation</strong> (ICD-10: I48.91). Scheduled surgical dental extraction carries a high
                         hemorrhage hazard. Attending cardiologist clearance required to specify pre-operative target INR thresholds
                         and anticoagulant maintenance protocol.
                       </>
                     )}
                   </p>
-                  <div className="flex flex-wrap gap-2 pt-1 text-[11px]">
-                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/30 font-semibold">
-                      Rx: Warfarin Sodium 5mg PO
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-200 border border-blue-500/30 font-semibold">
-                      Dx: Atrial Fibrillation (I48.91)
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-200 border border-rose-500/30 font-semibold">
-                      Risk: Critical Hemorrhage Hazard
-                    </span>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <span className="chip bg-white text-warning-dark">Rx: Warfarin Sodium 5mg PO</span>
+                    <span className="chip bg-white text-accent-deep">Dx: Atrial Fibrillation (I48.91)</span>
+                    <span className="chip bg-danger text-white">Risk: Critical Hemorrhage Hazard</span>
                   </div>
                 </div>
 
                 {/* Requested Actions from Dentist */}
-                <div className="text-xs space-y-1.5">
-                  <span className="font-semibold text-slate-300 block">Requested Physician Actions:</span>
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-300 text-[11px]">
+                <div className="space-y-3">
+                  <span className="font-display text-base font-medium text-text-main block">Requested Physician Actions</span>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-text-secondary">
                     {(selectedRequest.requested_actions || [
                       'Review coagulation protocol',
                       'Specify target INR threshold',
                       'Authorize temporary cessation of anticoagulant if applicable',
                       'Confirm safe pre-procedural hemodynamic tolerance',
                     ]).map((action, idx) => (
-                      <li key={idx} className="flex items-center gap-1.5 bg-slate-900/40 px-2 py-1 rounded border border-slate-700/50">
-                        <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                        <span>{action}</span>
+                      <li key={idx} className="flex items-center gap-3 bg-app-secondary rounded-full pl-2 pr-4 py-2">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-accent-soft text-accent shrink-0">
+                          <Check className="w-3.5 h-3.5" strokeWidth={1.5} />
+                        </span>
+                        <span className="leading-snug">{action}</span>
                       </li>
                     ))}
                   </ul>
@@ -439,121 +506,84 @@ export function PhysicianClearancePortal({
               </div>
 
               {/* Interactive Decision Form */}
-              <form onSubmit={handleSubmitDecision} className="bg-slate-800/90 rounded-xl border border-slate-700 p-5 shadow-lg space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-700/80">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <FileCheck className="w-4 h-4 text-emerald-400" />
+              <form onSubmit={handleSubmitDecision} className="card space-y-6">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-display text-xl font-medium text-ink flex items-center gap-3">
+                    <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-success-light text-success shrink-0">
+                      <FileCheck className="w-4 h-4" strokeWidth={1.5} />
+                    </span>
                     <span>Attending Cardiologist Sign-Off Directives</span>
                   </h3>
-                  <span className="text-[11px] text-slate-400">Epic/Cerner Attestation</span>
+                  <span className="chip shrink-0">Epic/Cerner Attestation</span>
                 </div>
 
                 {/* 3 Decision Radio Options */}
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-300 block">Clinical Sign-Off Determination:</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                    {/* 1. Approve Standard */}
-                    <label
-                      className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col justify-between ${
-                        decisionType === 'APPROVED'
-                          ? 'bg-emerald-950/70 border-emerald-500 text-emerald-200 ring-1 ring-emerald-400/30'
-                          : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 font-semibold">
-                        <input
-                          type="radio"
-                          name="clearanceDecision"
-                          value="APPROVED"
-                          checked={decisionType === 'APPROVED'}
-                          onChange={() => setDecisionType('APPROVED')}
-                          className="text-emerald-500 focus:ring-emerald-400"
-                        />
-                        <span>Approve Clearance</span>
-                      </div>
-                      <span className="text-[11px] text-slate-400 mt-1">Standard Protocol (Hemodynamically Stable)</span>
-                    </label>
-
-                    {/* 2. Approve with Conditions */}
-                    <label
-                      className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col justify-between ${
-                        decisionType === 'APPROVED_WITH_CONDITIONS'
-                          ? 'bg-blue-950/70 border-blue-500 text-blue-200 ring-1 ring-blue-400/30'
-                          : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 font-semibold">
-                        <input
-                          type="radio"
-                          name="clearanceDecision"
-                          value="APPROVED_WITH_CONDITIONS"
-                          checked={decisionType === 'APPROVED_WITH_CONDITIONS'}
-                          onChange={() => setDecisionType('APPROVED_WITH_CONDITIONS')}
-                          className="text-blue-500 focus:ring-blue-400"
-                        />
-                        <span>Approve with Conditions</span>
-                      </div>
-                      <span className="text-[11px] text-blue-300/80 mt-1">Specific INR / Hemostatic Protocol (Recommended)</span>
-                    </label>
-
-                    {/* 3. Deny Clearance */}
-                    <label
-                      className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col justify-between ${
-                        decisionType === 'REJECTED'
-                          ? 'bg-rose-950/70 border-rose-500 text-rose-200 ring-1 ring-rose-400/30'
-                          : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 font-semibold">
-                        <input
-                          type="radio"
-                          name="clearanceDecision"
-                          value="REJECTED"
-                          checked={decisionType === 'REJECTED'}
-                          onChange={() => setDecisionType('REJECTED')}
-                          className="text-rose-500 focus:ring-rose-400"
-                        />
-                        <span>Deny Clearance</span>
-                      </div>
-                      <span className="text-[11px] text-slate-400 mt-1">High Risk - Reschedule Post-Stabilization</span>
-                    </label>
+                <div className="space-y-3">
+                  <label className="text-sm text-text-secondary block">Clinical Sign-Off Determination</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {decisionOptions.map((opt) => {
+                      const isActive = decisionType === opt.value;
+                      return (
+                        <label
+                          key={opt.value}
+                          className={`p-4 rounded-3xl cursor-pointer transition-colors flex flex-col justify-between gap-2 ${
+                            isActive ? opt.active : 'bg-app-secondary text-text-main hover:bg-app-bg'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 font-display text-[15px] font-medium">
+                            <input
+                              type="radio"
+                              name="clearanceDecision"
+                              value={opt.value}
+                              checked={isActive}
+                              onChange={() => setDecisionType(opt.value)}
+                              className="w-4 h-4 accent-ink"
+                            />
+                            <span>{opt.title}</span>
+                          </div>
+                          <span className={`text-xs ${isActive ? opt.hintActive : 'text-text-muted'}`}>{opt.hint}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Dynamic Inputs when Approve with Conditions is selected */}
                 {decisionType === 'APPROVED_WITH_CONDITIONS' && (
-                  <div className="p-4 rounded-lg bg-blue-950/30 border border-blue-500/40 space-y-3 animate-fade-in text-xs">
-                    <div className="flex items-center justify-between font-semibold text-blue-300">
-                      <span>Conditional Parameters &amp; Hemostasis Directives</span>
-                      <span className="text-[10px] uppercase tracking-wider text-blue-400 font-mono">ADA / AHA Aligned</span>
+                  <div className="rounded-3xl bg-accent-soft p-5 space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-display text-base font-medium text-accent-deep">
+                        Conditional Parameters &amp; Hemostasis Directives
+                      </span>
+                      <span className="chip bg-white text-accent-deep shrink-0">ADA / AHA Aligned</span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                       <div>
-                        <label className="block text-slate-300 font-medium mb-1">Target Pre-Operative INR Range:</label>
+                        <label className="block text-xs text-text-secondary mb-1.5 px-1">Target Pre-Operative INR Range</label>
                         <input
                           type="text"
                           value={targetInr}
                           onChange={(e) => setTargetInr(e.target.value)}
                           placeholder="2.0 - 2.5"
-                          className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white font-mono focus:border-blue-400 focus:outline-none"
+                          className="field bg-white font-mono"
                         />
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                        <span className="text-[11px] text-text-muted block mt-1.5 px-1">
                           Standard safe extraction threshold: 2.0 – 2.5
                         </span>
                       </div>
 
                       {/* Hold Medication Toggle */}
-                      <div className="p-2.5 bg-slate-900/80 rounded border border-slate-700">
-                        <label className="flex items-start gap-2 cursor-pointer">
+                      <div className="rounded-3xl bg-white p-4">
+                        <label className="flex items-start gap-3 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={!holdMedication}
                             onChange={(e) => setHoldMedication(!e.target.checked)}
-                            className="mt-0.5 text-blue-500 focus:ring-blue-400"
+                            className="mt-0.5 w-4 h-4 accent-accent shrink-0"
                           />
-                          <span className="text-[11px] text-slate-200 leading-snug">
-                            <strong>Do NOT discontinue Warfarin;</strong> maintain local hemostatic measures (Gelfoam + Tranexamic acid rinse).
+                          <span className="text-xs text-text-secondary leading-snug">
+                            <strong className="font-semibold text-text-main">Do NOT discontinue Warfarin;</strong> maintain local hemostatic measures (Gelfoam + Tranexamic acid rinse).
                           </span>
                         </label>
                       </div>
@@ -563,38 +593,38 @@ export function PhysicianClearancePortal({
 
                 {/* Clinical Notes Textarea */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Physician Clinical Notes &amp; Operatory Directives:
+                  <label className="block text-sm text-text-secondary mb-2">
+                    Physician Clinical Notes &amp; Operatory Directives
                   </label>
                   <textarea
                     rows={3}
                     value={physicianNotes}
                     onChange={(e) => setPhysicianNotes(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-xs text-white placeholder-slate-500 focus:border-blue-400 focus:outline-none leading-relaxed"
+                    className="w-full rounded-3xl bg-app-secondary px-5 py-4 text-sm text-text-main placeholder:text-text-muted outline-none focus:bg-white focus:ring-2 focus:ring-accent/30 leading-relaxed resize-y"
                     placeholder="Enter instructions for dental surgery team..."
                   />
                 </div>
 
                 {/* Signature Attestation Field */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end pt-2 border-t border-slate-700/80">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Electronically Attested By:</label>
+                    <label className="block text-xs text-text-muted mb-1.5 px-1">Electronically Attested By</label>
                     <input
                       type="text"
                       value={signerName}
                       onChange={(e) => setSignerName(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-xs text-slate-200 font-semibold focus:border-blue-400 focus:outline-none"
+                      className="field font-medium"
                     />
                   </div>
 
                   {/* Submission Button */}
-                  <div className="text-right">
+                  <div className="sm:text-right">
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-lg shadow-lg text-xs flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                      className="btn-primary w-full sm:w-auto cursor-pointer"
                     >
-                      <Lock className="w-3.5 h-3.5" />
+                      <Lock className="w-4 h-4" strokeWidth={1.5} />
                       <span>{submitting ? 'Transmitting Sign-Off...' : 'Electronically Sign & Transmit to CareStack'}</span>
                     </button>
                   </div>
@@ -603,54 +633,58 @@ export function PhysicianClearancePortal({
 
               {/* Real-time Confirmation Badge (Displayed on submission) */}
               {confirmationBadge && (
-                <div className="p-4 bg-emerald-950/70 border border-emerald-500/60 rounded-xl shadow-lg space-y-2 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-emerald-300 font-bold text-sm">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                      <span>Medical Clearance Successfully Transmitted &amp; Acknowledged!</span>
+                <div className="rounded-4xl bg-success-light p-6 space-y-5 animate-fade-in">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-success text-white shrink-0">
+                        <CheckCircle2 className="w-5 h-5" strokeWidth={1.5} />
+                      </span>
+                      <span className="font-display text-lg font-medium text-success-dark">
+                        Medical Clearance Successfully Transmitted &amp; Acknowledged!
+                      </span>
                     </div>
-                    <span className="text-[11px] font-mono text-emerald-400 bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-700/40">
-                      HTTP 200 Acknowledged
-                    </span>
+                    <span className="chip bg-white text-success-dark font-mono">HTTP 200 Acknowledged</span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-300 pt-1">
-                    <div>
-                      <span className="text-slate-400 block text-[11px]">Decision:</span>
-                      <strong className="text-white">{confirmationBadge.decision.replace(/_/g, ' ')}</strong>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-3xl bg-white p-4">
+                      <span className="text-xs text-text-muted block">Decision</span>
+                      <span className="font-display text-base font-medium text-text-main capitalize">
+                        {confirmationBadge.decision.replace(/_/g, ' ').toLowerCase()}
+                      </span>
                     </div>
-                    <div>
-                      <span className="text-slate-400 block text-[11px]">Signed By:</span>
-                      <strong className="text-white">{confirmationBadge.signed_by}</strong>
+                    <div className="rounded-3xl bg-white p-4">
+                      <span className="text-xs text-text-muted block">Signed By</span>
+                      <span className="font-display text-base font-medium text-text-main">{confirmationBadge.signed_by}</span>
                     </div>
-                    <div>
-                      <span className="text-slate-400 block text-[11px]">Delivered At:</span>
-                      <span className="font-mono text-slate-200">{confirmationBadge.timestamp}</span>
-                    </div>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-900/80 rounded border border-emerald-600/30 text-[11px] font-mono text-slate-300 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">CareStack Webhook Target:</span>
-                      <span className="text-blue-300">POST /api/carestack/patients/{patient?.id}/medical-clearance-status</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Cryptographic Attestation Hash:</span>
-                      <span className="text-emerald-400 font-bold">{confirmationBadge.signatureHash}</span>
+                    <div className="rounded-3xl bg-white p-4">
+                      <span className="text-xs text-text-muted block">Delivered At</span>
+                      <span className="font-mono text-sm text-text-main">{confirmationBadge.timestamp}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <p className="text-[11px] text-emerald-300/90">
+                  <div className="rounded-3xl bg-white p-4 text-xs font-mono space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-text-muted font-sans">CareStack Webhook Target</span>
+                      <span className="text-accent break-all">POST /api/carestack/patients/{patient?.id}/medical-clearance-status</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-text-muted font-sans">Cryptographic Attestation Hash</span>
+                      <span className="text-success-dark font-medium break-all">{confirmationBadge.signatureHash}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-success-dark leading-relaxed flex-1 min-w-[16rem]">
                       CareStack chart alert appended: <em>"Cardiology Clearance Received: Target INR {confirmationBadge.targetInr}. Approved by Dr. Vance."</em>
                     </p>
                     {onSwitchToDentalView && (
                       <button
                         onClick={onSwitchToDentalView}
-                        className="text-xs text-white font-bold bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer"
+                        className="btn-dark cursor-pointer"
                       >
                         <span>View in Dental Operatory</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
                       </button>
                     )}
                   </div>
@@ -658,7 +692,7 @@ export function PhysicianClearancePortal({
               )}
             </div>
           ) : (
-            <div className="text-center py-20 text-slate-400">
+            <div className="card text-center py-20 text-text-muted">
               <p>Select a clearance task from the left queue to evaluate.</p>
             </div>
           )}

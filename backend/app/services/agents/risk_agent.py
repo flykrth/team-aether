@@ -8,6 +8,7 @@ rule knowledge base, appends a structured hazard object to `risk_evaluations`, d
 physician clearance is mandatory, and posts a sticky alert to the CareStack chart.
 """
 
+import re
 from datetime import date
 from typing import Any, Dict, List, Optional
 
@@ -115,7 +116,48 @@ class ClinicalRiskAgent:
             "evidence": [c["display"] for c in found],
         }
 
-    RULES = ("_rule_coronary_stent", "_rule_bisphosphonate", "_rule_anticoagulant", "_rule_systemic_modifiers")
+    def _rule_endocarditis_prophylaxis(self, state: MAOState, cdt_code: str) -> Optional[Dict[str, Any]]:
+        cardiac = find_concepts(state, codes=("I33.0", "Z95.2", "Z95.3", "Z95.4"),
+                                keywords=("prosthetic", "heart valve", "cardiac valve", "endocarditis"))
+        # AHA: procedures that manipulate gingival tissue or perforate mucosa (not exams / radiographs)
+        if not cardiac or not re.match(r"D[1-7]", (cdt_code or "").upper()):
+            return None
+        penicillin = find_concepts(state, keywords=("penicillin", "amoxicillin"))
+        penicillin = [c for c in penicillin if c.get("type") == "allergy"]
+        return {
+            "rule_id": "ENDOCARDITIS_PROPHYLAXIS",
+            "hazard_level": "MODERATE",
+            "contraindication": f"High-risk cardiac condition ({cardiac[0]['display']}): infective endocarditis prophylaxis indicated",
+            "recommendations": [
+                "Antibiotic prophylaxis 30-60 minutes before the procedure per AHA guidance"
+                + (": patient is penicillin-allergic, so NOT amoxicillin; use an alternative such as azithromycin or "
+                   "doxycycline per current guidance." if penicillin else " (amoxicillin 2 g orally for adults)."),
+            ],
+            "evidence": [c["display"] for c in cardiac],
+        }
+
+    def _rule_drug_allergy(self, state: MAOState, cdt_code: str) -> Optional[Dict[str, Any]]:
+        allergies = [c for c in (state.get("medical_records") or {}).get("normalized_concepts") or [] if c.get("type") == "allergy"]
+        if not allergies:
+            return None
+        names = " ".join((c.get("display") or "").lower() for c in allergies)
+        recommendations = []
+        if "penicillin" in names or "amoxicillin" in names:
+            recommendations.append("Penicillin allergy: do not prescribe amoxicillin / penicillin VK for prophylaxis or post-operative infection.")
+        if "latex" in names:
+            recommendations.append("Latex allergy: latex-free gloves, dam and prophy cups; schedule as first patient of the day.")
+        if "sulf" in names or "codeine" in names or "nsaid" in names or "aspirin" in names:
+            recommendations.append("Check the post-operative analgesic / antibiotic plan against the recorded drug allergy.")
+        return {
+            "rule_id": "DRUG_ALLERGY",
+            "hazard_level": "MODERATE",
+            "contraindication": "Recorded allergy: " + ", ".join(c["display"] for c in allergies),
+            "recommendations": recommendations or ["Review every planned drug and material against the recorded allergy."],
+            "evidence": [c["display"] for c in allergies],
+        }
+
+    RULES = ("_rule_coronary_stent", "_rule_bisphosphonate", "_rule_anticoagulant", "_rule_endocarditis_prophylaxis",
+             "_rule_drug_allergy", "_rule_systemic_modifiers")
 
     # -- node -----------------------------------------------------------------
 

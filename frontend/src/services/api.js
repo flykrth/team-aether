@@ -16,7 +16,12 @@ async function fetchJson(endpoint, options = {}) {
       },
     });
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const error = new Error(`HTTP ${res.status}: ${res.statusText}`);
+      try {
+        const body = await res.json();
+        if (typeof body?.detail === 'string') error.detail = body.detail;
+      } catch { /* non-JSON error body */ }
+      throw error;
     }
     return await res.json();
   } catch (err) {
@@ -26,6 +31,85 @@ async function fetchJson(endpoint, options = {}) {
 }
 
 export const api = {
+  // Patient Records (add patients, medical history, import previous records)
+  listRecordPatients: () => fetchJson('/api/records/patients'),
+  createRecordPatient: (payload) => fetchJson('/api/records/patients', { method: 'POST', body: JSON.stringify(payload) }),
+  getPatientRecord: (patientId) => fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}`),
+  addHistoryEntries: (patientId, entries, source = 'manual') =>
+    fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}/history`, {
+      method: 'POST',
+      body: JSON.stringify({ entries, source }),
+    }),
+  extractRecordText: (text) => fetchJson('/api/records/extract', { method: 'POST', body: JSON.stringify({ text }) }),
+  importPreviousRecord: (patientId, payload) =>
+    fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}/import`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // Manual mode: editable chart, file ingestion, risk check
+  getPatientChart: (patientId) => fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}/chart`),
+  updatePatient: (patientId, changes) =>
+    fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}`, { method: 'PATCH', body: JSON.stringify(changes) }),
+  updateHistoryEntry: (patientId, resourceId, changes) =>
+    fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}/history/${encodeURIComponent(resourceId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(changes),
+    }),
+  deleteHistoryEntry: (patientId, resourceId) =>
+    fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}/history/${encodeURIComponent(resourceId)}`, { method: 'DELETE' }),
+  extractRecordFile: async (file) => {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    const res = await fetch(`${API_BASE}/api/records/extract-file`, { method: 'POST', body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error(`HTTP ${res.status}`);
+      error.detail = typeof body?.detail === 'string' ? body.detail : undefined;
+      throw error;
+    }
+    return body;
+  },
+  riskCheck: (payload) => fetchJson('/api/risk/check', { method: 'POST', body: JSON.stringify(payload) }),
+  getRiskProcedures: () => fetchJson('/api/risk/procedures'),
+  validateRiskInput: (field, text) => fetchJson('/api/risk/validate-input', { method: 'POST', body: JSON.stringify({ field, text }) }),
+
+  // Speech-to-text for voice control (multipart upload, so no JSON content-type)
+  transcribeAudio: async (blob, filename = 'voice.webm') => {
+    const form = new FormData();
+    form.append('file', blob, filename);
+    const res = await fetch(`${API_BASE}/api/assistant/transcribe`, { method: 'POST', body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error(`HTTP ${res.status}`);
+      error.detail = typeof body?.detail === 'string' ? body.detail : undefined;
+      throw error;
+    }
+    return body;
+  },
+
+  // MAO Assistant (Gemini chat agent)
+  getAssistantStatus: () => fetchJson('/api/assistant/status'),
+  assistantChat: (messages, patientId, attachments = []) =>
+    fetchJson('/api/assistant/chat', {
+      method: 'POST',
+      body: JSON.stringify({ messages, patient_id: patientId || null, attachments }),
+    }),
+
+  // Multi-Agent Orchestrator (MAO)
+  getAgentsStatus: () => fetchJson('/api/agents/status'),
+  getAgentState: (patientId) => fetchJson(`/api/agents/state/${encodeURIComponent(patientId)}`),
+  submitAgentEvent: (payload) =>
+    fetchJson('/api/agents/events', { method: 'POST', body: JSON.stringify(payload) }),
+  sendClearanceResponse: (patientId, text) =>
+    fetchJson(`/api/agents/clearance-response/${encodeURIComponent(patientId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  checkAgentEscalations: (hours) =>
+    fetchJson(`/api/agents/check-escalations${hours ? `?hours_since_dispatch=${hours}` : ''}`, { method: 'POST' }),
+  agentStreamUrl: (patientId) => `${API_BASE}/api/agents/stream/${encodeURIComponent(patientId)}`,
+
   // Health & System
   getHealth: () => fetchJson('/health'),
   getRoot: () => fetchJson('/'),

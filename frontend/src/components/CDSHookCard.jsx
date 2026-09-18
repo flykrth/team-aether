@@ -14,30 +14,34 @@ import {
   Send,
   Loader2,
   Clock,
+  ArrowUpRight,
 } from 'lucide-react';
 import { api } from '../services/api';
 
 const INDICATOR_STYLES = {
   critical: {
-    wrapper: 'border-danger/30 bg-danger-light text-danger-dark',
-    badge: 'bg-danger text-white font-bold',
+    dark: true,
+    wrapper: 'card-dark',
+    badge: 'bg-white/10 text-white/80',
+    disc: 'bg-danger text-white',
     icon: AlertTriangle,
-    iconColor: 'text-danger',
-    label: 'CRITICAL CLINICAL HAZARD',
+    label: 'Critical clinical hazard',
   },
   warning: {
-    wrapper: 'border-warning/40 bg-warning-light text-warning-dark',
-    badge: 'bg-warning text-white font-bold',
+    dark: false,
+    wrapper: 'card',
+    badge: 'bg-warning-light text-warning-dark',
+    disc: 'bg-warning text-white',
     icon: HeartPulse,
-    iconColor: 'text-warning-dark',
-    label: 'CLINICAL REVIEW REQUIRED',
+    label: 'Clinical review required',
   },
   info: {
-    wrapper: 'border-info/30 bg-info-light text-info-dark',
-    badge: 'bg-info text-white font-bold',
+    dark: false,
+    wrapper: 'card',
+    badge: 'bg-accent-soft text-accent-deep',
+    disc: 'bg-accent text-white',
     icon: Info,
-    iconColor: 'text-info',
-    label: 'CLINICAL INFORMATIONAL',
+    label: 'Clinical informational',
   },
 };
 
@@ -64,12 +68,12 @@ function renderDetailMarkdown(detail, textColor = 'text-text-main') {
     if (!trimmed) return <div key={i} className="h-1.5" />;
 
     return isBullet ? (
-      <div key={i} className={`flex gap-2 pl-1 text-xs ${textColor} leading-relaxed`}>
+      <div key={i} className={`flex gap-2.5 pl-1 text-sm ${textColor} leading-relaxed`}>
         <span aria-hidden="true" className="opacity-60">•</span>
         <span>{parts}</span>
       </div>
     ) : (
-      <p key={i} className={`text-xs ${textColor} leading-relaxed`}>{parts}</p>
+      <p key={i} className={`text-sm ${textColor} leading-relaxed`}>{parts}</p>
     );
   });
 }
@@ -77,7 +81,7 @@ function renderDetailMarkdown(detail, textColor = 'text-text-main') {
 /**
  * Enterprise CareStack CDS Hooks v1.0 & Step 10 Dual Decision Card Component:
  * - Card Type A: Clinical Safety Card (Red/Amber/Blue for contraindications & clinical hazards).
- * - Card Type B: Administrative Opportunity Card (Emerald/Green theme for medical cross-coding & financial optimization).
+ * - Card Type B: Administrative Opportunity Card (electric-blue accent theme for medical cross-coding & financial optimization).
  */
 export function CDSHookCard({
   card,
@@ -105,7 +109,7 @@ export function CDSHookCard({
     Boolean(card.opportunity);
 
   // ---------------------------------------------------------------------------
-  // CARD TYPE B: Administrative Opportunity Card (Emerald Theme)
+  // CARD TYPE B: Administrative Opportunity Card (Accent Theme)
   // ---------------------------------------------------------------------------
   if (isOpportunity) {
     const opportunity = card.opportunity || {};
@@ -120,106 +124,104 @@ export function CDSHookCard({
         : 'Est. Medical Coverage: $400 - $800');
 
     return (
-      <div className="rounded-lg border border-emerald-500 bg-emerald-50 text-emerald-900 p-4 mb-3 shadow-xs transition-all hover:shadow-md">
+      <div className="card-accent p-7 mb-4 last:mb-0 animate-fade-in">
         {/* Opportunity Card Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2.5">
-            <div className="mt-0.5 shrink-0 p-1 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-300">
-              <TrendingUp className="w-4 h-4" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-white text-accent-deep text-xs font-medium">
+                <Sparkles className="w-3.5 h-3.5" strokeWidth={1.5} />
+                Financial Optimization
+              </span>
+              <span className="inline-flex items-center h-7 px-3 rounded-full bg-white/15 text-white/90 text-xs font-medium">
+                Medical Cross-Coding
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-600 text-white shadow-xs">
-                  <Sparkles className="w-3 h-3" />
-                  Financial Optimization
-                </span>
-                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded border border-emerald-200">
-                  Medical Cross-Coding
-                </span>
-              </div>
-              <h3 className="font-bold text-sm text-emerald-950 leading-snug">
-                Medical Cross-Coding Opportunity Identified
-              </h3>
-            </div>
+            <h3 className="font-display text-2xl font-medium leading-tight tracking-tight text-white">
+              Medical Cross-Coding Opportunity Identified
+            </h3>
           </div>
+          <span className="icon-btn-white text-accent">
+            <TrendingUp className="w-5 h-5" strokeWidth={1.5} />
+          </span>
         </div>
 
         {/* Reimbursement Summary Banner */}
-        <div className="mt-3 px-3 py-2 rounded-md bg-white border border-emerald-200 shadow-xs flex items-center justify-between">
+        <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">
-              Estimated Medical Reimbursement
-            </span>
-            <span className="text-sm font-extrabold text-emerald-900 font-mono">
+            <span className="text-sm text-white/70 block mb-1">Estimated Medical Reimbursement</span>
+            <span className="font-display text-4xl font-medium tracking-tight text-white leading-none">
               {summaryText}
             </span>
           </div>
-          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+          <span className="inline-flex items-center h-7 px-3 rounded-full bg-white/15 text-white text-xs font-medium">
             Primary Medical Payer
           </span>
         </div>
 
         {/* Code Cross-Walk Pill Badges */}
-        <div className="mt-2.5 pt-2.5 border-t border-emerald-200/80">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-1.5 flex items-center gap-1">
-            <Link2 className="w-3 h-3 text-emerald-600" />
+        <div className="mt-6 rounded-3xl bg-white/10 p-4">
+          <div className="text-sm text-white/70 mb-3 flex items-center gap-1.5">
+            <Link2 className="w-4 h-4" strokeWidth={1.5} />
             <span>Code Cross-Walk Pathway</span>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-mono font-bold bg-white text-slate-800 border border-emerald-300 shadow-xs">
-              <span className="text-[10px] font-sans font-semibold text-text-muted">CDT</span>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-white/15 text-white font-mono">
+              <span className="text-[11px] font-sans text-white/60">CDT</span>
               <span>{cdtCode}</span>
             </span>
 
-            <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <ArrowRight className="w-4 h-4 text-white/60 shrink-0" strokeWidth={1.5} />
 
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-mono font-bold bg-emerald-600 text-white shadow-xs">
-              <span className="text-[10px] font-sans font-semibold text-emerald-100">CPT</span>
+            <span className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-white text-accent-deep font-mono">
+              <span className="text-[11px] font-sans text-accent/70">CPT</span>
               <span>{cptCode}</span>
             </span>
 
-            <span className="text-emerald-700 text-[11px] font-medium px-1">linked via</span>
+            <span className="text-white/60 text-xs px-1">linked via</span>
 
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-mono font-semibold bg-emerald-100 text-emerald-900 border border-emerald-300">
-              <span className="text-[10px] font-sans font-semibold text-emerald-700">ICD-10</span>
-              <span className="font-bold">{icd10Primary}</span>
+            <span className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-white/15 text-white font-mono">
+              <span className="text-[11px] font-sans text-white/60">ICD-10</span>
+              <span>{icd10Primary}</span>
             </span>
           </div>
         </div>
 
         {/* Narrative Clinical Justification */}
         {card.detail && (
-          <div className="mt-2.5 pt-2 border-t border-emerald-200/60 text-xs text-emerald-900/90 leading-relaxed">
-            {renderDetailMarkdown(card.detail, 'text-emerald-950')}
+          <div className="mt-5 space-y-1">
+            {renderDetailMarkdown(card.detail, 'text-white/85')}
           </div>
         )}
 
         {/* Verified Source Attribution */}
-        <div className="mt-3 flex items-center justify-between text-[11px] text-emerald-800 bg-white/70 px-2.5 py-1.5 rounded border border-emerald-200">
-          <span className="flex items-center gap-1.5 font-medium">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2 text-xs text-white/70">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 shrink-0" strokeWidth={1.5} />
             <span>
               Source:{' '}
-              <strong className="text-emerald-950 font-semibold">
+              <span className="text-white font-medium">
                 {card.source?.label || 'CareStack Administrative Cross-Coding Engine'}
-              </strong>
+              </span>
             </span>
           </span>
-          <span className="text-[10px] text-emerald-700 font-mono">ConceptMap CDT to CPT</span>
+          <span className="font-mono text-white/50">ConceptMap CDT to CPT</span>
         </div>
 
         {/* Action Button: Launch Financial Optimization Dashboard */}
-        <div className="mt-3 pt-2.5 border-t border-emerald-300/80 flex items-center justify-between">
-          <span className="text-[11px] text-emerald-700 italic">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xs text-white/70">
             Ready for CMS-1500 generation & 837P EDI
           </span>
           <button
             onClick={() => onOpenFinancialDashboard?.(card)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer active:scale-98"
+            className="group inline-flex items-center gap-3 h-12 pl-5 pr-1.5 rounded-full bg-white text-ink font-display font-semibold text-[15px] hover:bg-app-secondary cursor-pointer"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <FileSpreadsheet className="w-4 h-4 text-accent" strokeWidth={1.5} />
             <span>Open Financial Optimization Dashboard</span>
-            <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+            <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-ink text-white">
+              <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
+            </span>
           </button>
         </div>
       </div>
@@ -275,58 +277,78 @@ export function CDSHookCard({
     }
   };
 
+  const isDark = style.dark;
+
   return (
-    <div className={`rounded-lg border p-4 mb-3 bg-app-surface shadow-xs transition-all ${style.wrapper}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2.5">
-          <div className="mt-0.5 shrink-0">
-            <Icon className={`w-4 h-4 ${style.iconColor}`} />
-          </div>
-          <div>
-            <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-1 ${style.badge}`}>
-              {style.label}
-            </span>
-            <h3 className="font-semibold text-sm text-text-main leading-snug">{card.summary}</h3>
-          </div>
+    <div className={`${style.wrapper} p-7 mb-4 last:mb-0 animate-fade-in`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <span className={`inline-flex items-center h-7 px-3 rounded-full text-xs font-medium mb-4 ${style.badge}`}>
+            {style.label}
+          </span>
+          <h3 className={`font-display text-2xl font-medium leading-tight tracking-tight ${isDark ? 'text-white' : 'text-text-main'}`}>
+            {card.summary}
+          </h3>
         </div>
+        <span className={`inline-flex items-center justify-center w-12 h-12 rounded-full shrink-0 ${style.disc}`}>
+          <Icon className="w-5 h-5" strokeWidth={1.5} />
+        </span>
       </div>
 
       {card.detail && (
-        <div className="mt-2.5 pt-2.5 border-t border-app-border/60 space-y-1">
-          {renderDetailMarkdown(card.detail)}
+        <div className="mt-5 space-y-1">
+          {renderDetailMarkdown(card.detail, isDark ? 'text-white/80' : 'text-text-secondary')}
         </div>
       )}
 
       {/* Verified Source Attribution */}
       {card.source && (
-        <div className="mt-3 flex items-center justify-between text-[11px] text-text-secondary bg-app-bg px-2.5 py-1.5 rounded border border-app-border">
-          <span className="flex items-center gap-1.5 font-medium">
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-            <span>Source: <strong className="text-text-main font-semibold">{card.source.label}</strong></span>
+        <div
+          className={`mt-5 flex flex-wrap items-center justify-between gap-2 rounded-2xl px-4 py-3 text-xs ${
+            isDark ? 'bg-white/5 text-white/60' : 'bg-app-secondary text-text-secondary'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className={`w-4 h-4 shrink-0 ${isDark ? 'text-white/70' : 'text-accent'}`} strokeWidth={1.5} />
+            <span>
+              Source: <span className={`font-medium ${isDark ? 'text-white' : 'text-text-main'}`}>{card.source.label}</span>
+            </span>
           </span>
-          <span className="text-[10px] text-text-muted font-mono">HL7 FHIR R4 Engine</span>
+          <span className={`font-mono ${isDark ? 'text-white/40' : 'text-text-muted'}`}>HL7 FHIR R4 Engine</span>
         </div>
       )}
 
       {/* Step 13: Dedicated Digital Clearance Passport Action Block for Critical Contradictions */}
       {isCriticalClearanceCard && (
-        <div className="mt-3.5 pt-3 border-t border-danger/30 bg-slate-900/40 p-3 rounded-lg border border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div>
-            <div className="flex items-center gap-1.5 font-bold text-slate-100">
-              <Send className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Automated Pre-Screening Clearance Gateway</span>
+        <div
+          className={`mt-4 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+            isDark ? 'bg-white/5' : 'bg-app-secondary'
+          }`}
+        >
+          <div className="flex items-start gap-3 min-w-0">
+            <span
+              className={`inline-flex items-center justify-center w-10 h-10 rounded-full shrink-0 ${
+                isDark ? 'bg-white/10 text-white' : 'bg-accent-soft text-accent-deep'
+              }`}
+            >
+              <Send className="w-4 h-4" strokeWidth={1.5} />
+            </span>
+            <div className="min-w-0">
+              <div className={`font-display font-semibold text-[15px] ${isDark ? 'text-white' : 'text-text-main'}`}>
+                Automated Pre-Screening Clearance Gateway
+              </div>
+              <p className={`text-xs mt-1 leading-relaxed ${isDark ? 'text-white/60' : 'text-text-secondary'}`}>
+                {clearanceDispatched
+                  ? 'Passport Dispatched to Dr. Kenneth Vance (Metropolitan Heart Center) via FHIR Task'
+                  : 'Bridge to Attending Cardiologist via HL7 FHIR R4 Task & CommunicationRequest'}
+              </p>
             </div>
-            <p className="text-[11px] text-slate-300 mt-0.5">
-              {clearanceDispatched
-                ? 'Passport Dispatched to Dr. Kenneth Vance (Metropolitan Heart Center) via FHIR Task'
-                : 'Bridge to Attending Cardiologist via HL7 FHIR R4 Task & CommunicationRequest'}
-            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {clearanceDispatched ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse shadow-xs">
-                <Clock className="w-3.5 h-3.5 text-amber-700" />
+              <span className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-xs font-medium bg-warning-light text-warning-dark animate-pulse">
+                <Clock className="w-4 h-4" strokeWidth={1.5} />
                 <span>Awaiting Physician Clearance</span>
               </span>
             ) : (
@@ -334,16 +356,18 @@ export function CDSHookCard({
                 type="button"
                 onClick={handleDispatchClearance}
                 disabled={dispatchingClearance}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-md transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+                className={`inline-flex items-center gap-2 h-11 px-5 rounded-full font-display font-semibold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isDark ? 'bg-accent text-white hover:bg-accent-deep' : 'bg-ink text-white hover:bg-ink-soft'
+                }`}
               >
                 {dispatchingClearance ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.5} />
                     <span>Transmitting FHIR Task…</span>
                   </>
                 ) : (
                   <>
-                    <Send className="w-3.5 h-3.5 text-indigo-200" />
+                    <Send className="w-4 h-4" strokeWidth={1.5} />
                     <span>Dispatch Digital Clearance Passport</span>
                   </>
                 )}
@@ -354,30 +378,42 @@ export function CDSHookCard({
       )}
 
       {/* Clinical Workflow Action Buttons */}
-      <div className="mt-3 pt-2.5 border-t border-app-border flex flex-wrap items-center gap-2">
+      <div className="mt-6 flex flex-wrap items-center gap-2">
         {onViewEvidence && (
           <button
             onClick={() => onViewEvidence(card)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-app-bg text-text-main border border-app-border hover:bg-app-secondary transition-colors"
+            className={`inline-flex items-center gap-2 h-11 pl-5 pr-1.5 rounded-full font-display font-medium text-[15px] ${
+              isDark ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-app-secondary text-text-main hover:bg-app-bg'
+            }`}
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
             <span>View Evidence</span>
+            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${isDark ? 'bg-white text-ink' : 'bg-ink text-white'}`}>
+              <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
+            </span>
           </button>
         )}
         <button
           onClick={handleAppendAlert}
           disabled={appending || appended || !onAppendAlert}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-teal-500 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-xs"
+          className={`inline-flex items-center justify-center gap-2 h-11 px-5 rounded-full font-display font-semibold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed ${
+            isDark ? 'bg-white text-ink hover:bg-app-secondary' : 'bg-accent text-white hover:bg-accent-deep'
+          }`}
         >
-          {appended ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
+          {appended ? <CheckCircle2 className="w-4 h-4" strokeWidth={1.5} /> : null}
           {appended ? 'Medical Alert Appended to Chart' : appending ? 'Appending…' : 'Post Medical Alert to CareStack Chart'}
         </button>
         <button
           onClick={handleRequestConsult}
           disabled={requestingConsult || consultRequested || !onRequestConsult}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded bg-white text-text-main border border-app-border hover:bg-app-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className={`inline-flex items-center justify-center gap-2 h-11 px-5 rounded-full font-display font-medium text-[15px] disabled:opacity-50 disabled:cursor-not-allowed ${
+            isDark ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-app-secondary text-text-main hover:bg-app-bg'
+          }`}
         >
-          {consultRequested ? <CheckCircle2 className="w-3.5 h-3.5 text-success" /> : <Stethoscope className="w-3.5 h-3.5 text-info" />}
+          {consultRequested ? (
+            <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={1.5} />
+          ) : (
+            <Stethoscope className={`w-4 h-4 ${isDark ? 'text-white/70' : 'text-accent'}`} strokeWidth={1.5} />
+          )}
           {consultRequested
             ? 'Physician Consult Requested'
             : requestingConsult
@@ -388,5 +424,3 @@ export function CDSHookCard({
     </div>
   );
 }
-
-

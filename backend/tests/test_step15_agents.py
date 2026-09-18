@@ -108,6 +108,25 @@ def test_parse_physician_endorsement_variants(text, decision, expected):
     assert parsed["restrictions"] == expected
 
 
+@pytest.mark.parametrize("text", [
+    "I do not approve this procedure. Rejected.", "Not approved.", "Patient is not OK to proceed",
+    "Request declined; he is not approved until INR < 3", "Rejected - too risky.", "I can't clear him for surgery.",
+    "Extraction is contraindicated at this time.", "I refuse to approve this.",
+])
+def test_negated_approvals_are_never_approved(text):
+    agent = MedicalClearanceAgent()
+    assert agent.parse_physician_endorsement(text)["decision"] == "REJECTED"
+    state = create_initial_state("CS-9921", cdt_codes=["D7210"])
+    state["clearance_status"] = "TRANSMITTED_TO_EHR"
+    assert agent.ingest_physician_response(state, text).get("clearance_status") != "CLEARED"
+
+
+@pytest.mark.parametrize("text", ["Cleared to proceed. Do not stop aspirin.", "Do not hold warfarin, ok to proceed.",
+                                  "Not contraindicated. Cleared.", "Patient may proceed; don't stop Plavix."])
+def test_maintain_instructions_do_not_read_as_rejections(text):
+    assert MedicalClearanceAgent().parse_physician_endorsement(text)["decision"].startswith("APPROVED")
+
+
 def test_parse_extracts_inr_and_hold_flag():
     parsed = MedicalClearanceAgent().parse_physician_endorsement("Approved. Hold warfarin for 48 hours, INR target below 2.5.")
     assert parsed["hold_medications"] is True and parsed["inr_target"] == "<2.5"

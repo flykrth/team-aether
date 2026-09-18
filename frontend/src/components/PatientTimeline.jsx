@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, RefreshCcw, FileText, CheckCircle2, Stethoscope, AlertTriangle } from 'lucide-react';
+import { RefreshCcw, FileText, CheckCircle2, Stethoscope, AlertTriangle } from 'lucide-react';
 
 export function PatientTimeline({ patient, alertsCount }) {
   if (!patient) return null;
@@ -10,57 +10,64 @@ export function PatientTimeline({ patient, alertsCount }) {
       title: 'Medical record synchronized via FHIR R4',
       description: 'Hospital EHR records successfully fetched & mapped against CareStack MRN.',
       icon: RefreshCcw,
-      iconBg: 'bg-teal-50 text-teal-700 border-teal-200',
+      iconBg: 'bg-accent text-white',
     },
     {
       time: 'Today, 09:35 AM',
       title: 'Dental treatment plan updated',
       description: 'CDT procedure D7140 (Extraction, Erupted Tooth) queued for Operatory 3.',
       icon: FileText,
-      iconBg: 'bg-info-light text-info-dark border-info/30',
+      iconBg: 'bg-accent text-white',
     },
     {
       time: 'Today, 09:20 AM',
       title: 'Patient check-in recorded',
       description: `${patient.first_name} ${patient.last_name} checked in at Main Clinic desk.`,
       icon: CheckCircle2,
-      iconBg: 'bg-success-light text-success-dark border-success/30',
+      iconBg: 'bg-accent text-white',
     },
     {
       time: 'Today, 09:10 AM',
       title: 'Real-time CDS Hooks safety scan',
       description: alertsCount > 0 ? `${alertsCount} clinical safety findings flagged for review.` : 'Clean risk evaluation — no contraindications detected.',
       icon: alertsCount > 0 ? AlertTriangle : Stethoscope,
-      iconBg: alertsCount > 0 ? 'bg-warning-light text-warning-dark border-warning/40' : 'bg-success-light text-success-dark border-success/30',
+      iconBg: alertsCount > 0 ? 'bg-warning text-white' : 'bg-ink text-white',
     },
   ];
 
   return (
-    <div className="bg-app-surface rounded-lg border border-app-border p-4 shadow-xs">
-      <div className="flex items-center gap-1.5 pb-2.5 border-b border-app-border mb-3">
-        <Clock className="w-4 h-4 text-teal-600" />
-        <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+    <div className="card">
+      <div className="flex items-end justify-between gap-3 mb-7">
+        <h3 className="font-display text-xl font-medium text-text-main leading-tight">
           Patient Encounter Timeline
         </h3>
+        <span className="font-display text-sm text-text-muted tabular-nums shrink-0">Today</span>
       </div>
 
-      <div className="relative pl-4 space-y-3.5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-app-border">
+      <ol className="relative">
         {events.map((ev, i) => {
           const Icon = ev.icon;
+          const isLast = i === events.length - 1;
           return (
-            <div key={i} className="relative flex items-start gap-3 text-xs">
-              <div className={`absolute -left-4 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center border text-[9px] font-bold shrink-0 ${ev.iconBg}`}>
-                <Icon className="w-2.5 h-2.5" />
+            <li key={i} className="relative flex items-start gap-4 pb-7 last:pb-0">
+              {!isLast && (
+                <span
+                  aria-hidden="true"
+                  className="absolute left-[21px] top-11 bottom-0 w-[1.5px] bg-accent/40 rounded-full"
+                />
+              )}
+              <div className={`icon-disc w-11 h-11 ${ev.iconBg}`}>
+                <Icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
               </div>
-              <div>
-                <div className="font-semibold text-text-main leading-tight">{ev.title}</div>
-                <div className="text-[11px] text-text-secondary mt-0.5 leading-normal">{ev.description}</div>
-                <div className="text-[10px] text-text-muted mt-0.5 font-mono">{ev.time}</div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <div className="font-display text-[15px] font-semibold text-text-main leading-snug">{ev.title}</div>
+                <div className="text-[13px] text-text-secondary mt-1 leading-relaxed">{ev.description}</div>
+                <div className="text-xs text-text-muted mt-1.5 tabular-nums">{ev.time}</div>
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
   );
 }

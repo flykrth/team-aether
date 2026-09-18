@@ -35,7 +35,18 @@ _DRUGS = {
 _DRUG_PATTERN = "|".join(sorted((re.escape(k) for k in _DRUGS), key=len, reverse=True))
 _MAINTAIN = r"(?:maintain|continue|keep (?:taking|on)|stay on|do not (?:stop|hold|interrupt)|don't (?:stop|hold))"
 _HOLD = r"(?:hold|stop|discontinue|pause|withhold|suspend)"
-_REJECT = r"\b(not cleared|do not proceed|cannot clear|clearance denied|denied|defer (?:the )?(?:procedure|surgery|extraction)|postpone)\b"
+# Rejection is evaluated before approval, and a negated approval ("not approved", "do not approve",
+# "can't clear", "not OK to proceed") is a rejection. A false REJECTED is the safe direction; a false APPROVED is not.
+# The lookahead keeps "do not stop aspirin, cleared to proceed" an approval.
+_NEGATED_APPROVAL = (
+    r"(?:\b(?:not|never|no longer|cannot|unable to)\b|n't\b)"
+    r"(?:(?!\b(?:stop|hold|interrupt|discontinue|pause|withhold|suspend)\b)[^.;,\n]){0,30}?"
+    r"\b(?:approv\w*|clear\w*|ok(?:ay)? to proceed|proceed|go ahead)\b"
+)
+_REJECT = (
+    r"\b(not cleared|do not proceed|cannot clear|clearance denied|denied|defer (?:the )?(?:procedure|surgery|extraction)|postpone\w*"
+    r"|reject\w*|declin\w+|refus\w+|disapprov\w*|(?<!not )(?<!no longer )contraindicated|unsafe to proceed)\b|" + _NEGATED_APPROVAL
+)
 
 
 class MedicalClearanceAgent:

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Code, CheckCircle, Clock } from 'lucide-react';
+import { Play, Code, Clock } from 'lucide-react';
 import { api } from '../services/api';
 
 const ENDPOINTS = [
@@ -52,20 +52,24 @@ export function EndpointTester() {
   };
 
   return (
-    <div className="bg-app-surface rounded-lg border border-app-border p-5 shadow-xs">
-      <div className="pb-4 border-b border-app-border mb-4">
-        <h3 className="text-base font-bold text-text-main tracking-tight flex items-center gap-2">
-          <Code className="w-4 h-4 text-teal-500" />
-          <span>Interactive Interoperability Endpoint Tester</span>
-        </h3>
-        <p className="text-xs text-text-secondary mt-0.5">
-          Execute live requests against the FastAPI backend endpoints (/api/carestack, /api/fhir, /cds-services).
-        </p>
+    <div className="card p-7">
+      <div className="flex items-center gap-4 mb-7">
+        <div className="icon-disc">
+          <Code className="w-5 h-5" strokeWidth={1.5} />
+        </div>
+        <div>
+          <h3 className="font-display text-2xl font-medium text-text-main tracking-tight leading-tight">
+            <span>Interactive Interoperability Endpoint Tester</span>
+          </h3>
+          <p className="text-[13px] text-text-muted mt-0.5">
+            Execute live requests against the FastAPI backend endpoints (/api/carestack, /api/fhir, /cds-services).
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Endpoint Selector List */}
-        <div className="lg:col-span-4 space-y-1.5">
+        <div className="lg:col-span-4 space-y-2">
           {ENDPOINTS.map((ep) => {
             const isSelected = selectedEndpoint.id === ep.id;
             return (
@@ -75,21 +79,21 @@ export function EndpointTester() {
                   setSelectedEndpoint(ep);
                   handleRun(ep);
                 }}
-                className={`w-full text-left p-2.5 rounded border transition-all text-xs flex items-center justify-between ${
+                className={`w-full text-left px-5 py-3.5 rounded-3xl transition-colors text-sm flex items-center justify-between gap-3 ${
                   isSelected
-                    ? 'border-teal-500 bg-teal-50/50 shadow-xs'
-                    : 'border-app-border hover:border-text-muted bg-app-surface'
+                    ? 'bg-ink text-white'
+                    : 'bg-app-secondary hover:bg-app-bg text-text-main'
                 }`}
               >
-                <div>
-                  <div className="font-semibold text-text-main">{ep.name}</div>
-                  <div className="text-[10px] font-mono text-text-secondary mt-0.5">{ep.path}</div>
+                <div className="min-w-0">
+                  <div className="font-display font-semibold truncate">{ep.name}</div>
+                  <div className={`text-[11px] font-mono mt-0.5 truncate ${isSelected ? 'text-white/60' : 'text-text-muted'}`}>{ep.path}</div>
                 </div>
                 <span
-                  className={`px-1.5 py-0.5 text-[9px] font-mono font-bold rounded ${
+                  className={`shrink-0 px-2.5 py-1 text-[10px] font-mono font-medium rounded-full ${
                     ep.method === 'GET'
-                      ? 'bg-teal-100 text-teal-800'
-                      : 'bg-info-light text-info-dark'
+                      ? isSelected ? 'bg-white/10 text-white' : 'bg-white text-text-secondary'
+                      : 'bg-accent text-white'
                   }`}
                 >
                   {ep.method}
@@ -101,58 +105,58 @@ export function EndpointTester() {
 
         {/* Live Payload Viewer */}
         <div className="lg:col-span-8">
-          <div className="bg-text-main rounded-lg overflow-hidden shadow-inner flex flex-col h-full min-h-[400px]">
+          <div className="bg-ink rounded-3xl overflow-hidden flex flex-col h-full min-h-[400px]">
             {/* Header bar */}
-            <div className="bg-slate-900 px-4 py-2.5 flex items-center justify-between border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <span className="font-mono text-xs font-bold text-teal-400">
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="font-mono text-[11px] font-medium text-white bg-accent px-2.5 py-1 rounded-full shrink-0">
                   {selectedEndpoint.method}
                 </span>
-                <span className="font-mono text-xs text-slate-300">
+                <span className="font-mono text-xs text-white/70 truncate">
                   {selectedEndpoint.path}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-3 shrink-0">
                 {duration !== null && (
-                  <span className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
-                    <Clock className="w-3 h-3 text-teal-400" />
+                  <span className="flex items-center gap-1.5 text-[11px] text-white/50 font-mono tabular-nums">
+                    <Clock className="w-3.5 h-3.5" strokeWidth={1.5} />
                     {duration}ms
                   </span>
                 )}
                 <button
                   onClick={() => handleRun()}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-teal-500 hover:bg-teal-700 text-white rounded text-xs font-semibold transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 h-9 px-4 bg-white hover:bg-app-secondary text-ink rounded-full text-sm font-display font-semibold disabled:opacity-40"
                 >
-                  <Play className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  <Play className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} strokeWidth={1.5} />
                   <span>Execute</span>
                 </button>
               </div>
             </div>
 
             {/* Code Output */}
-            <div className="p-3.5 flex-1 overflow-auto font-mono text-xs text-slate-200">
+            <div className="mx-2 mb-2 p-4 flex-1 overflow-auto font-mono text-xs text-white/80 bg-white/[0.04] rounded-[20px]">
               {loading && (
-                <div className="h-full flex items-center justify-center text-slate-400 text-xs">
+                <div className="h-full flex items-center justify-center text-white/50 text-xs">
                   Connecting to MDIN FastAPI node...
                 </div>
               )}
 
               {error && (
-                <div className="text-danger-dark bg-danger-light p-3 rounded border border-danger/30">
+                <div className="text-danger-dark bg-danger-light p-4 rounded-2xl">
                   Error: {error}
                 </div>
               )}
 
               {result && !loading && (
-                <pre className="whitespace-pre-wrap leading-relaxed text-[11px] text-teal-300">
+                <pre className="whitespace-pre-wrap leading-relaxed text-[11px] text-accent-soft/90">
                   {JSON.stringify(result, null, 2)}
                 </pre>
               )}
 
               {!result && !loading && !error && (
-                <div className="h-full flex items-center justify-center text-slate-400 text-xs">
+                <div className="h-full flex items-center justify-center text-white/50 text-xs">
                   Click 'Execute' or choose an endpoint on the left to inspect raw payload.
                 </div>
               )}
@@ -163,4 +167,3 @@ export function EndpointTester() {
     </div>
   );
 }
-

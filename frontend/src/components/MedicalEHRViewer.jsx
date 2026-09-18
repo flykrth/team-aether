@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Stethoscope, FileText, ArrowRightLeft, Pill, AlertTriangle, FlaskConical, Loader2, Database } from 'lucide-react';
+import { Stethoscope, FileText, ArrowRightLeft, Pill, AlertTriangle, FlaskConical, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 
 function getCoding(resource, conceptKey) {
@@ -83,39 +83,37 @@ export function MedicalEHRViewer({ patient }) {
 
   if (!patient) {
     return (
-      <div className="p-6 text-center text-xs text-text-muted bg-app-surface rounded-lg border border-app-border">
+      <div className="card text-center text-sm text-text-muted py-10">
         Select a patient to inspect the federated Medical EHR record.
       </div>
     );
   }
 
   return (
-    <div className="bg-app-surface rounded-lg border border-app-border shadow-xs overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-app-border bg-app-surface">
-        <div className="flex items-center gap-2">
-          <Stethoscope className="w-4 h-4 text-teal-500" />
+    <div className="card p-7">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+        <div className="flex items-center gap-4">
+          <div className="icon-disc">
+            <Stethoscope className="w-5 h-5" strokeWidth={1.5} />
+          </div>
           <div>
-            <h3 className="font-bold text-sm text-text-main leading-tight">Federated Medical EHR Record</h3>
-            <p className="text-[11px] text-text-secondary">Hospital-of-record clinical data (HL7 FHIR R4)</p>
+            <h3 className="font-display text-2xl font-medium text-text-main leading-tight">Federated Medical EHR Record</h3>
+            <p className="text-[13px] text-text-muted mt-0.5">Hospital-of-record clinical data (HL7 FHIR R4)</p>
           </div>
         </div>
         <button
           onClick={() => setShowTrace((v) => !v)}
-          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded border transition-colors ${
-            showTrace
-              ? 'bg-teal-500 text-white border-teal-500 shadow-xs'
-              : 'bg-app-surface text-teal-700 border-teal-300 hover:bg-teal-50'
-          }`}
+          className={`pill shrink-0 ${showTrace ? 'pill-active' : 'bg-app-secondary'}`}
         >
-          <ArrowRightLeft className="w-3.5 h-3.5" />
+          <ArrowRightLeft className="w-4 h-4" strokeWidth={1.5} />
           {showTrace ? 'View Raw FHIR' : 'ConceptMap $translate Trace'}
         </button>
       </div>
 
-      <div className="p-4">
+      <div>
         {loading ? (
-          <div className="flex items-center justify-center gap-2 text-xs text-text-muted py-6">
-            <Loader2 className="w-4 h-4 animate-spin text-teal-500" />
+          <div className="well flex items-center justify-center gap-2.5 text-sm text-text-muted py-10">
+            <Loader2 className="w-4 h-4 animate-spin text-accent" strokeWidth={1.5} />
             Synchronizing federated EHR record via FHIR R4…
           </div>
         ) : showTrace ? (
@@ -133,91 +131,130 @@ export function MedicalEHRViewer({ patient }) {
   );
 }
 
+const RESOURCE_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'conditions', label: 'Conditions' },
+  { key: 'medications', label: 'Medications' },
+  { key: 'allergies', label: 'Allergies' },
+  { key: 'labs', label: 'Labs' },
+];
+
 function RawFhirView({ conditions, medications, allergies, observations }) {
+  const [filter, setFilter] = useState('all');
+  const show = (key) => filter === 'all' || filter === key;
+
   return (
-    <div className="space-y-4">
-      <ResourceSection
-        icon={FileText}
-        colorClass="text-info"
-        title="Condition (Diagnoses)"
-        items={conditions}
-        renderItem={(c) => (
-          <>
-            <div className="font-semibold text-text-main">{c.code?.text}</div>
-            <CodingRow coding={getCoding(c, 'code')} />
-            <div className="text-[10px] text-text-muted mt-0.5">Onset: {c.onsetDateTime || 'Documented'}</div>
-          </>
+    <div>
+      <div className="flex flex-wrap gap-2 mb-6">
+        {RESOURCE_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setFilter(f.key)}
+            className={`pill h-10 px-4 text-sm ${filter === f.key ? 'pill-active' : 'bg-app-secondary'}`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-7">
+        {show('conditions') && (
+          <ResourceSection
+            icon={FileText}
+            title="Condition (Diagnoses)"
+            items={conditions}
+            renderItem={(c) => (
+              <>
+                <div className="font-display text-base font-semibold text-text-main leading-snug">{c.code?.text}</div>
+                <CodingRow coding={getCoding(c, 'code')} />
+                <div className="text-xs text-text-muted mt-2 tabular-nums">Onset: {c.onsetDateTime || 'Documented'}</div>
+              </>
+            )}
+          />
         )}
-      />
-      <ResourceSection
-        icon={Pill}
-        colorClass="text-teal-600"
-        title="MedicationRequest (Active Rx)"
-        items={medications}
-        renderItem={(m) => (
-          <>
-            <div className="font-semibold text-text-main">{m.medicationCodeableConcept?.text}</div>
-            <CodingRow coding={getCoding(m, 'medicationCodeableConcept')} />
-            <div className="text-[10px] text-text-muted mt-0.5">Status: <span className="font-medium text-text-main">{m.status}</span></div>
-          </>
+        {show('medications') && (
+          <ResourceSection
+            icon={Pill}
+            title="MedicationRequest (Active Rx)"
+            items={medications}
+            renderItem={(m) => (
+              <>
+                <div className="font-display text-base font-semibold text-text-main leading-snug">{m.medicationCodeableConcept?.text}</div>
+                <CodingRow coding={getCoding(m, 'medicationCodeableConcept')} />
+                <div className="mt-2">
+                  <span className="chip bg-white">Status: <span className="text-text-main">{m.status}</span></span>
+                </div>
+              </>
+            )}
+          />
         )}
-      />
-      <ResourceSection
-        icon={AlertTriangle}
-        colorClass="text-danger"
-        title="AllergyIntolerance"
-        items={allergies}
-        renderItem={(a) => (
-          <>
-            <div className="font-bold text-danger-dark">{a.code?.text}</div>
-            <CodingRow coding={getCoding(a, 'code')} />
-            <div className="text-[10px] text-danger-dark font-medium mt-0.5 uppercase tracking-wide">
-              Criticality: {a.criticality || 'high'}
-            </div>
-          </>
+        {show('allergies') && (
+          <ResourceSection
+            icon={AlertTriangle}
+            discClass="bg-danger"
+            tileClass="bg-danger-light"
+            title="AllergyIntolerance"
+            items={allergies}
+            renderItem={(a) => (
+              <>
+                <div className="font-display text-base font-semibold text-danger-dark leading-snug">{a.code?.text}</div>
+                <CodingRow coding={getCoding(a, 'code')} />
+                <div className="mt-2">
+                  <span className="chip bg-white text-danger-dark">Criticality: {a.criticality || 'high'}</span>
+                </div>
+              </>
+            )}
+          />
         )}
-      />
-      <ResourceSection
-        icon={FlaskConical}
-        colorClass="text-warning"
-        title="Observation (Labs)"
-        items={observations}
-        renderItem={(o) => (
-          <>
-            <div className="flex items-start justify-between gap-2">
-              <div className="font-semibold text-text-main">{o.code?.text}</div>
-              {o.valueQuantity && (
-                <span className="shrink-0 font-mono font-bold text-warning-dark bg-warning-light px-2 py-0.5 rounded border border-warning/30">
-                  {o.valueQuantity.value} {o.valueQuantity.unit}
-                </span>
-              )}
-            </div>
-            <CodingRow coding={getCoding(o, 'code')} />
-            <div className="text-[10px] text-text-muted mt-0.5">Resulted: {o.effectiveDateTime || 'Undated'}</div>
-          </>
+        {show('labs') && (
+          <ResourceSection
+            icon={FlaskConical}
+            title="Observation (Labs)"
+            items={observations}
+            renderItem={(o) => (
+              <div className="flex items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="font-display text-base font-semibold text-text-main leading-snug">{o.code?.text}</div>
+                  <CodingRow coding={getCoding(o, 'code')} />
+                  <div className="text-xs text-text-muted mt-2 tabular-nums">Resulted: {o.effectiveDateTime || 'Undated'}</div>
+                </div>
+                {o.valueQuantity && (
+                  <div className="shrink-0 text-right leading-none">
+                    <span className="font-display text-4xl font-medium text-text-main tracking-tight tabular-nums">
+                      {o.valueQuantity.value}
+                    </span>{' '}
+                    <span className="text-xs text-text-muted">{o.valueQuantity.unit}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          />
         )}
-      />
+      </div>
     </div>
   );
 }
 
-function ResourceSection({ icon: Icon, colorClass, title, items, renderItem }) {
+function ResourceSection({ icon: Icon, discClass = '', tileClass = 'bg-app-secondary', title, items, renderItem }) {
   return (
     <div>
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <Icon className={`w-3.5 h-3.5 ${colorClass}`} />
-        <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">{title}</span>
-        <span className="text-[10px] text-text-muted font-mono">({items.length})</span>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="font-display text-[15px] font-medium text-text-main">{title}</span>
+        <span className="text-xs text-text-muted tabular-nums">({items.length})</span>
       </div>
-      <div className="space-y-1.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {items.length > 0 ? (
           items.map((item) => (
-            <div key={item.id} className="p-2.5 bg-app-bg rounded border border-app-border text-xs">
-              {renderItem(item)}
+            <div key={item.id} className={`flex items-start gap-4 rounded-3xl p-4 text-sm ${tileClass}`}>
+              <div className={`icon-disc w-10 h-10 ${discClass}`}>
+                <Icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">{renderItem(item)}</div>
             </div>
           ))
         ) : (
-          <div className="text-xs text-text-muted italic bg-app-surface p-2 rounded border border-app-border/50">
+          <div className="well text-sm text-text-muted md:col-span-2">
             No {title} resources recorded in federated EHR.
           </div>
         )}
@@ -229,8 +266,8 @@ function ResourceSection({ icon: Icon, colorClass, title, items, renderItem }) {
 function CodingRow({ coding }) {
   if (!coding?.code) return null;
   return (
-    <div className="mt-0.5 font-mono text-[10px] text-text-muted break-all">
-      {coding.system} <span className="font-bold text-text-secondary">|</span> <strong className="text-text-main font-semibold">{coding.code}</strong>
+    <div className="mt-1 font-mono text-[11px] text-text-muted break-all">
+      {coding.system} <span className="text-text-muted">|</span> <strong className="text-text-main font-medium">{coding.code}</strong>
     </div>
   );
 }
@@ -238,21 +275,21 @@ function CodingRow({ coding }) {
 function TraceView({ trace, loading }) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 text-xs text-text-muted py-6">
-        <Loader2 className="w-4 h-4 animate-spin text-teal-500" />
+      <div className="well flex items-center justify-center gap-2.5 text-sm text-text-muted py-10">
+        <Loader2 className="w-4 h-4 animate-spin text-accent" strokeWidth={1.5} />
         Running ConceptMap $translate operation against medical-to-dental-contraindications...
       </div>
     );
   }
 
   if (trace.length === 0) {
-    return <div className="text-xs text-text-muted italic py-3">No coded concepts available for semantic translation.</div>;
+    return <div className="well text-sm text-text-muted">No coded concepts available for semantic translation.</div>;
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-[11px] text-text-secondary mb-2">
-        Live FHIR ConceptMap <code className="font-mono bg-app-secondary px-1 py-0.5 rounded border border-app-border text-text-main">$translate</code> trace — cross-specialty mapping:
+    <div className="space-y-2.5">
+      <p className="text-[13px] text-text-secondary mb-4">
+        Live FHIR ConceptMap <code className="font-mono text-xs bg-app-secondary px-2 py-0.5 rounded-full text-text-main">$translate</code> trace — cross-specialty mapping:
       </p>
       {trace.map((row, i) => {
         const matched = row.outcome?.result;
@@ -260,25 +297,27 @@ function TraceView({ trace, loading }) {
         return (
           <div
             key={i}
-            className={`flex items-center gap-2.5 p-2.5 rounded border text-xs ${
-              matched ? 'border-teal-300 bg-teal-50/60' : 'border-app-border bg-app-bg'
+            className={`flex items-center gap-4 rounded-3xl p-4 text-sm ${
+              matched ? 'bg-accent-soft' : 'bg-app-secondary'
             }`}
           >
             <div className="flex-1 min-w-0">
-              <div className="font-mono text-[9px] text-text-muted truncate">{row.system}</div>
-              <div className="font-semibold text-text-main truncate">{row.display || row.code}</div>
-              <div className="font-mono text-[10px] text-text-secondary">{row.code}</div>
+              <div className="font-mono text-[10px] text-text-muted truncate">{row.system}</div>
+              <div className="font-display font-semibold text-text-main truncate mt-0.5">{row.display || row.code}</div>
+              <div className="font-mono text-[11px] text-text-secondary">{row.code}</div>
             </div>
-            <ArrowRightLeft className={`w-3.5 h-3.5 shrink-0 ${matched ? 'text-teal-600' : 'text-text-muted'}`} />
+            <div className={`inline-flex items-center justify-center w-9 h-9 rounded-full shrink-0 ${matched ? 'bg-accent text-white' : 'bg-white text-text-muted'}`}>
+              <ArrowRightLeft className="w-4 h-4" strokeWidth={1.5} />
+            </div>
             <div className="flex-1 min-w-0 text-right">
               {matched ? (
                 <>
-                  <div className="font-mono text-[9px] text-teal-700 uppercase font-bold">{match.equivalence}</div>
-                  <div className="font-mono font-bold text-teal-800">{match.concept.code}</div>
-                  <div className="text-[10px] text-teal-700 truncate">{match.concept.display}</div>
+                  <div className="font-mono text-[10px] text-accent-deep">{match.equivalence}</div>
+                  <div className="font-mono font-semibold text-accent-deep mt-0.5">{match.concept.code}</div>
+                  <div className="text-[11px] text-accent-deep/80 truncate">{match.concept.display}</div>
                 </>
               ) : (
-                <span className="text-text-muted italic text-[11px]">No mapping rule</span>
+                <span className="text-text-muted text-xs">No mapping rule</span>
               )}
             </div>
           </div>
@@ -287,4 +326,3 @@ function TraceView({ trace, loading }) {
     </div>
   );
 }
-

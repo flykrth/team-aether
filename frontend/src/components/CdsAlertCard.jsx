@@ -1,67 +1,63 @@
 import React from 'react';
-import { AlertTriangle, AlertCircle, Info, ExternalLink, CheckCircle } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Info, ArrowUpRight, CheckCircle } from 'lucide-react';
 
 export function CdsAlertCard({ card }) {
   const isCritical = card.indicator === 'critical';
   const isWarning = card.indicator === 'warning';
 
-  const badgeColor = isCritical
-    ? 'bg-danger text-white'
-    : isWarning
-    ? 'bg-warning text-white'
-    : 'bg-info text-white';
+  // Critical → charcoal feature card; warning / info → white card with a toned icon disc.
+  const cardSurface = isCritical ? 'card-dark' : 'card';
 
-  const cardBorder = isCritical
-    ? 'border-danger/30 bg-danger-light text-danger-dark'
+  const badgeColor = isCritical
+    ? 'bg-white/10 text-white/80'
     : isWarning
-    ? 'border-warning/40 bg-warning-light text-warning-dark'
-    : 'border-info/30 bg-info-light text-info-dark';
+    ? 'bg-warning-light text-warning-dark'
+    : 'bg-accent-soft text-accent-deep';
+
+  const discColor = isCritical ? 'bg-danger text-white' : isWarning ? 'bg-warning text-white' : 'bg-accent text-white';
 
   const IconComponent = isCritical ? AlertTriangle : isWarning ? AlertCircle : Info;
-  const iconColor = isCritical ? 'text-danger' : isWarning ? 'text-warning-dark' : 'text-info';
+
+  const titleColor = isCritical ? 'text-white' : 'text-text-main';
+  const bodyColor = isCritical ? 'text-white/75' : 'text-text-secondary';
+  const mutedColor = isCritical ? 'text-white/50' : 'text-text-muted';
 
   return (
-    <div className={`rounded-lg border ${cardBorder} p-4 mb-3 shadow-xs transition-all`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2.5">
-          <div className="p-1.5 rounded bg-white shadow-xs shrink-0 mt-0.5">
-            <IconComponent className={`w-4 h-4 ${iconColor}`} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${badgeColor}`}>
-                {card.indicator}
-              </span>
-              <h4 className="font-semibold text-text-main text-sm">{card.summary}</h4>
-            </div>
-            {card.detail && (
-              <p className="text-xs text-text-main leading-relaxed whitespace-pre-line">
-                {card.detail}
-              </p>
-            )}
-          </div>
+    <div className={`${cardSurface} p-7 mb-4 last:mb-0 animate-fade-in`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <span className={`inline-flex items-center h-7 px-3 rounded-full text-xs font-medium capitalize mb-4 ${badgeColor}`}>
+            {card.indicator}
+          </span>
+          <h4 className={`font-display text-2xl font-medium leading-tight tracking-tight ${titleColor}`}>{card.summary}</h4>
+          {card.detail && (
+            <p className={`mt-3 text-sm leading-relaxed whitespace-pre-line ${bodyColor}`}>
+              {card.detail}
+            </p>
+          )}
         </div>
+        <span className={`inline-flex items-center justify-center w-12 h-12 rounded-full shrink-0 ${discColor}`}>
+          <IconComponent className="w-5 h-5" strokeWidth={1.5} />
+        </span>
       </div>
 
       {/* Actionable Suggestions */}
       {card.suggestions && card.suggestions.length > 0 && (
-        <div className="mt-3 pt-2.5 border-t border-app-border">
-          <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-1.5">
-            Recommended Clinical Action
-          </p>
-          <div className="space-y-1.5">
+        <div className="mt-6">
+          <p className={`text-sm mb-3 ${mutedColor}`}>Recommended Clinical Action</p>
+          <div className="flex flex-wrap gap-2">
             {card.suggestions.map((sug, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between p-2 bg-white rounded border border-app-border text-xs"
+                className={`inline-flex items-center gap-2 h-11 pl-2 pr-5 rounded-full font-display font-medium text-[15px] ${
+                  isCritical ? 'bg-white/10 text-white' : 'bg-app-secondary text-text-main'
+                }`}
               >
-                <span className="font-medium text-text-main flex items-center gap-1.5">
-                  <CheckCircle className="w-3.5 h-3.5 text-success shrink-0" />
-                  {sug.label}
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-success text-white shrink-0">
+                  <CheckCircle className="w-4 h-4" strokeWidth={1.5} />
                 </span>
-                <span className="text-[10px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded font-semibold border border-teal-200">
-                  Auto-Order / EHR Sync
-                </span>
+                <span>{sug.label}</span>
+                <span className={`text-xs font-sans ${mutedColor}`}>Auto-Order / EHR Sync</span>
               </div>
             ))}
           </div>
@@ -69,22 +65,24 @@ export function CdsAlertCard({ card }) {
       )}
 
       {/* Clinical Source / Guidelines Link */}
-      <div className="mt-2.5 pt-2 flex items-center justify-between text-[11px] text-text-secondary border-t border-app-border/40">
+      <div className={`mt-6 flex flex-wrap items-center justify-between gap-3 text-xs ${mutedColor}`}>
         <span className="flex items-center gap-1">
-          Source: <strong className="font-semibold text-text-main">{card.source.label}</strong>
+          Source: <span className={`font-medium ${titleColor}`}>{card.source.label}</span>
         </span>
         {card.source.url && (
           <a
             href={card.source.url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-teal-700 hover:text-teal-800 font-semibold"
+            className={`inline-flex items-center gap-2 font-display font-medium text-sm ${titleColor}`}
           >
-            Clinical Reference <ExternalLink className="w-3 h-3" />
+            Clinical Reference
+            <span className={isCritical ? 'icon-btn-white' : 'icon-btn'}>
+              <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
+            </span>
           </a>
         )}
       </div>
     </div>
   );
 }
-

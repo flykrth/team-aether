@@ -61,6 +61,31 @@ try:
         FHIR_TIMEOUT_SECONDS: float = 8.0
         FHIR_USE_CACHE_FALLBACK: bool = True
 
+        # MAO Assistant (LLM chat agent). Real secrets: set in .env only, never commit.
+        # One MASTER provider runs the tool-calling loop (first configured of gemini, groq,
+        # nvidia unless ASSISTANT_MASTER_PROVIDER forces one); the others serve as parallel
+        # specialists for consult_specialists.
+        GEMINI_API_KEY: str = ""
+        GEMINI_MODEL: str = "gemini-3.8-flash"
+        # Scanned-PDF OCR: auto = NVIDIA Nemotron Parse when NVIDIA_API_KEY is set, else Gemini
+        DOCUMENT_OCR_PROVIDER: str = "auto"
+        NVIDIA_PARSE_MODEL: str = "nvidia/nemotron-parse"
+        GROQ_API_KEY: str = ""
+        GROQ_MODEL: str = "openai/gpt-oss-120b"
+        GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
+        NVIDIA_API_KEY: str = ""
+        NVIDIA_MODEL: str = "nvidia/nemotron-3-super-120b-a12b"
+        NVIDIA_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
+        ASSISTANT_MASTER_PROVIDER: str = ""  # "", gemini, groq or nvidia
+
+        # Voice input (speech to text). auto = NVIDIA when NVIDIA_STT_URL is set, else Groq Whisper.
+        # NVIDIA's hosted ASR is gRPC-only; NVIDIA_STT_URL points at a self-hosted Speech NIM
+        # (http://host:9000), which is the only NVIDIA ASR route that speaks plain HTTP.
+        STT_PROVIDER: str = "auto"  # auto | nvidia | groq
+        GROQ_STT_MODEL: str = "whisper-large-v3-turbo"
+        NVIDIA_STT_MODEL: str = "nvidia/nemotron-asr-streaming"
+        NVIDIA_STT_URL: str = ""
+
         # CDS Hooks Service
         CDS_DISCOVERY_PATH: str = "/cds-services"
 
@@ -113,6 +138,22 @@ except ImportError:
         FHIR_FALLBACK_SERVER_URL: str = os.getenv("FHIR_FALLBACK_SERVER_URL", "https://lforms-fhir.nlm.nih.gov/baseR4")
         FHIR_TIMEOUT_SECONDS: float = float(os.getenv("FHIR_TIMEOUT_SECONDS", "8.0"))
         FHIR_USE_CACHE_FALLBACK: bool = os.getenv("FHIR_USE_CACHE_FALLBACK", "True").lower() in ("1", "true", "yes")
+
+        GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+        GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+        DOCUMENT_OCR_PROVIDER: str = os.getenv("DOCUMENT_OCR_PROVIDER", "auto")
+        NVIDIA_PARSE_MODEL: str = os.getenv("NVIDIA_PARSE_MODEL", "nvidia/nemotron-parse")
+        GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+        GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+        GROQ_BASE_URL: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+        NVIDIA_API_KEY: str = os.getenv("NVIDIA_API_KEY", "")
+        NVIDIA_MODEL: str = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+        NVIDIA_BASE_URL: str = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+        ASSISTANT_MASTER_PROVIDER: str = os.getenv("ASSISTANT_MASTER_PROVIDER", "")
+        STT_PROVIDER: str = os.getenv("STT_PROVIDER", "auto")
+        GROQ_STT_MODEL: str = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+        NVIDIA_STT_MODEL: str = os.getenv("NVIDIA_STT_MODEL", "nvidia/nemotron-asr-streaming")
+        NVIDIA_STT_URL: str = os.getenv("NVIDIA_STT_URL", "")
         CDS_DISCOVERY_PATH: str = os.getenv("CDS_DISCOVERY_PATH", "/cds-services")
 
         @property

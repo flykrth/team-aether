@@ -7,78 +7,71 @@ export function EvidenceDrawer({ card, procedure, patient, onClose }) {
   if (!card) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs flex justify-end">
-      <div className="w-full max-w-lg bg-app-surface h-full shadow-2xl border-l border-app-border flex flex-col justify-between overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-ink/20 backdrop-blur-sm flex justify-end">
+      <div className="w-full max-w-xl bg-app-surface h-full rounded-l-5xl flex flex-col justify-between overflow-y-auto animate-fade-in">
         {/* Drawer Header */}
         <div>
-          <div className="px-5 py-4 border-b border-app-border flex items-center justify-between bg-app-bg">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-teal-600" />
-              <h3 className="font-bold text-sm text-text-main">Clinical Evidence & Risk Rationale</h3>
+          <div className="px-8 pt-8 pb-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="icon-disc">
+                <ShieldCheck className="w-5 h-5" strokeWidth={1.5} />
+              </span>
+              <h3 className="font-display text-xl font-medium text-text-main">Clinical Evidence & Risk Rationale</h3>
             </div>
-            <button
-              onClick={onClose}
-              className="text-text-muted hover:text-text-main p-1 rounded hover:bg-app-secondary transition-colors"
-            >
-              <X className="w-4 h-4" />
+            <button onClick={onClose} className="icon-btn" aria-label="Close">
+              <X className="w-5 h-5" strokeWidth={1.5} />
             </button>
           </div>
 
-          <div className="p-5 space-y-4">
+          <div className="px-8 pb-8 pt-2 space-y-4">
             {/* Finding Summary Banner */}
-            <div className="p-3.5 rounded bg-warning-light border border-warning/40">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-warning text-white inline-block mb-1.5">
+            <div className="card-dark p-6">
+              <span className="inline-flex items-center h-7 px-3 rounded-full bg-white/10 text-white/80 text-xs font-medium capitalize mb-4">
                 {card.indicator || 'Clinical Review'}
               </span>
-              <h4 className="font-bold text-sm text-text-main leading-snug">{card.summary}</h4>
+              <h4 className="font-display text-2xl font-medium leading-tight tracking-tight text-white">{card.summary}</h4>
             </div>
 
             {/* Why am I seeing this? */}
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
-                Why am I seeing this finding?
-              </span>
-              <div className="text-xs text-text-main leading-relaxed bg-app-bg p-3 rounded border border-app-border">
+            <div className="well p-5">
+              <span className="block text-sm text-text-muted mb-2">Why am I seeing this finding?</span>
+              <div className="text-sm text-text-main leading-relaxed">
                 {card.detail || 'This clinical safety review was triggered because active medical factors in the patient’s hospital EHR conflict with proposed dental treatment.'}
               </div>
             </div>
 
             {/* Context Table */}
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
-                Clinical Context & Source Attribution
-              </span>
-              <div className="bg-app-surface border border-app-border rounded divide-y divide-app-border text-xs">
-                <div className="p-2.5 flex justify-between">
+            <div className="well p-5">
+              <span className="block text-sm text-text-muted mb-3">Clinical Context & Source Attribution</span>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between gap-4">
                   <span className="text-text-secondary">Patient</span>
-                  <strong className="text-text-main">{patient?.first_name} {patient?.last_name} (MRN: {patient?.mrn})</strong>
+                  <span className="text-text-main font-medium text-right">{patient?.first_name} {patient?.last_name} (MRN: {patient?.mrn})</span>
                 </div>
-                <div className="p-2.5 flex justify-between">
+                <div className="flex justify-between items-center gap-4">
                   <span className="text-text-secondary">Related Procedure</span>
-                  <strong className="font-mono text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                  <span className="chip chip-accent font-mono">
                     CDT {procedure?.code || 'D7140'}
-                  </strong>
+                  </span>
                 </div>
-                <div className="p-2.5 flex justify-between">
+                <div className="flex justify-between gap-4">
                   <span className="text-text-secondary">Data Source</span>
-                  <strong className="text-text-main">{card.source?.label || 'Connected Medical EHR (FHIR R4)'}</strong>
+                  <span className="text-text-main font-medium text-right">{card.source?.label || 'Connected Medical EHR (FHIR R4)'}</span>
                 </div>
-                <div className="p-2.5 flex justify-between">
+                <div className="flex justify-between gap-4">
                   <span className="text-text-secondary">Last Synchronized</span>
-                  <strong className="text-text-main">Today, {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
+                  <span className="text-text-main font-medium text-right">Today, {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
               </div>
             </div>
 
             {/* Actionable Suggestions */}
             {card.suggestions && card.suggestions.length > 0 && (
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
-                  Recommended Clinical Workflow Action
-                </span>
-                <div className="space-y-1.5">
+              <div className="well p-5">
+                <span className="block text-sm text-text-muted mb-3">Recommended Clinical Workflow Action</span>
+                <div className="flex flex-wrap gap-2">
                   {card.suggestions.map((sug, idx) => (
-                    <div key={idx} className="p-2.5 bg-teal-50 border border-teal-200 text-teal-900 rounded text-xs font-semibold">
+                    <div key={idx} className="pill bg-accent text-white hover:text-white">
                       {sug.label}
                     </div>
                   ))}
@@ -87,21 +80,23 @@ export function EvidenceDrawer({ card, procedure, patient, onClose }) {
             )}
 
             {/* Technical FHIR Details Collapsible */}
-            <div className="pt-3 border-t border-app-border">
+            <div>
               <button
                 onClick={() => setShowTechnical((v) => !v)}
-                className="w-full flex items-center justify-between text-xs font-semibold text-text-secondary hover:text-text-main p-2 rounded bg-app-bg hover:bg-app-secondary border border-app-border transition-colors"
+                className="w-full flex items-center justify-between h-12 pl-5 pr-2 rounded-full bg-app-secondary hover:bg-app-bg font-display font-medium text-[15px] text-text-main"
               >
-                <span className="flex items-center gap-1.5">
-                  <Code className="w-3.5 h-3.5 text-teal-600" />
+                <span className="flex items-center gap-2">
+                  <Code className="w-4 h-4 text-accent" strokeWidth={1.5} />
                   <span>{showTechnical ? 'Hide Technical FHIR Details' : 'View Technical FHIR Details'}</span>
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showTechnical ? 'rotate-180' : ''}`} />
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white">
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showTechnical ? 'rotate-180' : ''}`} strokeWidth={1.5} />
+                </span>
               </button>
 
               {showTechnical && (
-                <div className="mt-2.5 p-3 bg-text-main rounded text-[11px] font-mono text-teal-300 overflow-x-auto space-y-2">
-                  <p className="text-[10px] text-slate-400 font-sans border-b border-slate-700 pb-1">
+                <div className="mt-3 p-5 bg-ink rounded-3xl text-xs font-mono text-accent-soft/90 overflow-x-auto space-y-3">
+                  <p className="text-xs text-white/50 font-sans">
                     Raw FHIR R4 JSON & CDS Hooks Card Payload:
                   </p>
                   <pre className="whitespace-pre-wrap leading-relaxed">{JSON.stringify(card, null, 2)}</pre>
@@ -112,11 +107,8 @@ export function EvidenceDrawer({ card, procedure, patient, onClose }) {
         </div>
 
         {/* Drawer Footer */}
-        <div className="p-4 border-t border-app-border bg-app-bg flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-text-main bg-app-surface border border-app-border rounded hover:bg-app-secondary transition-colors"
-          >
+        <div className="px-8 pb-8 flex justify-end">
+          <button onClick={onClose} className="btn-dark">
             Close Evidence Drawer
           </button>
         </div>
