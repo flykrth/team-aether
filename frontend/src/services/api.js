@@ -125,4 +125,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(claim),
     }),
+
+  // Letter of Medical Necessity (LOMN) & CareStack Document Ingestion (Step 9)
+  generateAndAttachLOMN: (patientId, cdtCode) =>
+    fetchJson('/api/billing/generate-and-attach-lomn', {
+      method: 'POST',
+      body: JSON.stringify({
+        patient_id: patientId,
+        cdt_code: cdtCode,
+      }),
+    }),
+  getCareStackDocuments: (patientId) =>
+    fetchJson(`/api/carestack/patients/${encodeURIComponent(patientId)}/documents`),
+  attachCareStackDocument: (patientId, docPayload) =>
+    fetchJson(`/api/carestack/patients/${encodeURIComponent(patientId)}/documents`, {
+      method: 'POST',
+      body: JSON.stringify(docPayload),
+    }),
 };
+

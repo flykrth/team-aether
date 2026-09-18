@@ -253,6 +253,8 @@ class CareStackPatient(BaseModel):
     next_appointment: Optional[str] = None
     primary_dentist: Optional[str] = None
     active_treatment_plan: List[DentalProcedure] = Field(default_factory=list)
+    attached_documents: List[Dict[str, Any]] = Field(default_factory=list)
+
 
     def to_view_model(self) -> PatientViewModel:
         """Converts to official CareStack PatientViewModel."""
@@ -301,3 +303,34 @@ class SyncStatusResponse(BaseModel):
     last_sync_timestamp: str
     carestack_connection: str
     ehr_connection: str
+
+
+class CareStackDocumentUpload(BaseModel):
+    """Payload for uploading a clinical document or LOMN to a CareStack patient chart."""
+    document_type: str = Field("Letter of Medical Necessity", description="Type of clinical document")
+    title: str = Field(..., description="Title of the document")
+    file_content: str = Field(..., description="Document content (text, Markdown, or HTML)")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Custom metadata dictionary")
+
+
+class CareStackDocument(BaseModel):
+    """Clinical document record attached to a CareStack patient chart."""
+    document_id: str
+    patient_id: str
+    document_type: str
+    title: str
+    file_content: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    upload_timestamp: str
+    verification_hash: str
+    status: str = "attached"
+
+
+class CareStackDocumentResponse(BaseModel):
+    """Response returned upon successful document ingestion in CareStack."""
+    status: str = "success"
+    document_id: str
+    upload_timestamp: str
+    verification_hash: str
+    document: Optional[Dict[str, Any]] = None
+

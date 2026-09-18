@@ -160,6 +160,65 @@ def load_synthetic_ehr():
             "effectiveDateTime": "2026-08-14",
         })
 
+    # Seed Marcus Chen (patient-004 / CS-2004 / MRN-10004) - TMJ Arthralgia & Impacted Tooth
+    if "patient-004" not in existing_patient_ids and "MRN-10004" not in existing_patient_ids:
+        FHIR_STORE["Patient"].append({
+            "resourceType": "Patient",
+            "id": "patient-004",
+            "identifier": [
+                {"system": "http://hospital.smarthealthit.org", "value": "MRN-10004", "use": "official"},
+                {"system": "urn:oid:mdin:patient-alias", "value": "pat-4", "use": "secondary"},
+            ],
+            "active": True,
+            "name": [{"use": "official", "family": "Chen", "given": ["Marcus"]}],
+            "gender": "male",
+            "birthDate": "1985-06-14",
+            "telecom": [{"system": "phone", "value": "555-0104"}],
+        })
+        FHIR_STORE["Condition"].append({
+            "resourceType": "Condition",
+            "id": "COND-TMJ-004",
+            "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active"}]},
+            "code": {
+                "coding": [
+                    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "M26.61", "display": "Arthralgia of temporomandibular joint"},
+                    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "K01.1", "display": "Impacted teeth with cystic degeneration"},
+                ],
+                "text": "TMJ Arthralgia and Impacted Mandibular Third Molar",
+            },
+            "subject": {"reference": "Patient/patient-004", "display": "Marcus Chen"},
+            "onsetDateTime": "2024-05-12",
+        })
+
+    # Seed Sarah Jenkins (patient-005 / CS-2005 / MRN-10005) - Leukoplakia of oral mucosa
+    if "patient-005" not in existing_patient_ids and "MRN-10005" not in existing_patient_ids:
+        FHIR_STORE["Patient"].append({
+            "resourceType": "Patient",
+            "id": "patient-005",
+            "identifier": [
+                {"system": "http://hospital.smarthealthit.org", "value": "MRN-10005", "use": "official"},
+                {"system": "urn:oid:mdin:patient-alias", "value": "pat-5", "use": "secondary"},
+            ],
+            "active": True,
+            "name": [{"use": "official", "family": "Jenkins", "given": ["Sarah"]}],
+            "gender": "female",
+            "birthDate": "1972-03-29",
+            "telecom": [{"system": "phone", "value": "555-0105"}],
+        })
+        FHIR_STORE["Condition"].append({
+            "resourceType": "Condition",
+            "id": "COND-LEUK-005",
+            "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active", "display": "Active"}]},
+            "code": {
+                "coding": [
+                    {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "K13.21", "display": "Leukoplakia of oral mucosa, including tongue"},
+                ],
+                "text": "Oral Mucosal Leukoplakia (Premalignant Dysplasia)",
+            },
+            "subject": {"reference": "Patient/patient-005", "display": "Sarah Jenkins"},
+            "onsetDateTime": "2025-08-20",
+        })
+
 
 # Initial load
 load_synthetic_ehr()
@@ -193,18 +252,34 @@ PATIENT_ID_ALIASES: Dict[str, str] = {
     "patient-1": "patient-001",
     "patient-001": "patient-001",
     "cs-2001": "patient-001",
+    "mrn-10001": "patient-001",
     "pat-2": "patient-002",
     "pat-002": "patient-002",
     "patient-2": "patient-002",
     "patient-002": "patient-002",
     "cs-2002": "patient-002",
+    "mrn-10002": "patient-002",
     "pat-3": "patient-003",
     "pat-003": "patient-003",
     "patient-3": "patient-003",
     "patient-003": "patient-003",
     "cs-1003": "patient-003",
     "cs-2003": "patient-003",
+    "mrn-10003": "patient-003",
+    "pat-4": "patient-004",
+    "pat-004": "patient-004",
+    "patient-4": "patient-004",
+    "patient-004": "patient-004",
+    "cs-2004": "patient-004",
+    "mrn-10004": "patient-004",
+    "pat-5": "patient-005",
+    "pat-005": "patient-005",
+    "patient-5": "patient-005",
+    "patient-005": "patient-005",
+    "cs-2005": "patient-005",
+    "mrn-10005": "patient-005",
 }
+
 
 
 def _resolve_patient_aliases(ref_or_id: str) -> List[str]:

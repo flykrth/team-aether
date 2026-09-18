@@ -284,6 +284,31 @@ class CareStackClient:
         return await self._request("GET", "/api/v1.0/operatories")
 
     # -----------------------------------------------------------------
+    # Document Management & LOMN Ingestion (Step 9)
+    # -----------------------------------------------------------------
+
+    async def attach_patient_document(
+        self,
+        patient_id: Union[int, str],
+        document_type: str = "Letter of Medical Necessity",
+        title: str = "Clinical Document",
+        file_content: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """POST /api/carestack/patients/{id}/documents - Attach clinical document to chart."""
+        payload = {
+            "document_type": document_type,
+            "title": title,
+            "file_content": file_content,
+            "metadata": metadata or {},
+        }
+        return await self._request("POST", f"/api/carestack/patients/{patient_id}/documents", json_data=payload)
+
+    async def get_patient_documents(self, patient_id: Union[int, str]) -> List[Dict[str, Any]]:
+        """GET /api/carestack/patients/{id}/documents - Retrieve patient attached documents."""
+        return await self._request("GET", f"/api/carestack/patients/{patient_id}/documents")
+
+    # -----------------------------------------------------------------
     # Interoperability Node Health & Connectivity Check
     # -----------------------------------------------------------------
 
@@ -343,3 +368,4 @@ def describe_integration_mode() -> Dict[str, Any]:
             "to target a real account."
         ),
     }
+

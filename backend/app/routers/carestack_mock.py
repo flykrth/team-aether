@@ -27,6 +27,8 @@ Supports:
 """
 
 import uuid
+import hashlib
+import json
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, Header, Request, status
@@ -52,7 +54,11 @@ from ..schemas.carestack import (
     DentalProcedure,
     CareStackSyncRequest,
     SyncStatusResponse,
+    CareStackDocumentUpload,
+    CareStackDocument,
+    CareStackDocumentResponse,
 )
+
 from ..config import settings
 from ..services.carestack_client import get_carestack_client, describe_integration_mode
 from .fhir_ehr_mock import FHIR_STORE, _calculate_similarity, _normalize_ref_id
@@ -65,6 +71,35 @@ router = APIRouter()
 
 SYNCED_CLINICAL_CACHE: Dict[str, Dict[str, Any]] = {}
 PATIENT_MEDICAL_ALERTS: Dict[str, List[Dict[str, Any]]] = {}
+CARESTACK_PATIENT_DOCUMENTS: Dict[str, List[Dict[str, Any]]] = {
+    "CS-2001": [
+        {
+            "document_id": "DOC-PREAUTH-101",
+            "patient_id": "CS-2001",
+            "document_type": "Insurance Pre-Authorization",
+            "title": "Dental Payer Pre-Authorization - Delta Dental PPO",
+            "file_content": "Pre-Authorization #DA-994821 approved for diagnostic and preventive dental procedures.",
+            "metadata": {"payer": "Delta Dental", "status": "approved", "cdt_codes": ["D0120", "D1110"]},
+            "upload_timestamp": "2026-01-10T10:30:00Z",
+            "verification_hash": hashlib.sha256(b"Pre-Authorization #DA-994821 approved for diagnostic and preventive dental procedures.").hexdigest(),
+            "status": "attached",
+        }
+    ],
+    "CS-2003": [
+        {
+            "document_id": "DOC-CLIN-103",
+            "patient_id": "CS-2003",
+            "document_type": "Clinical Chart Note",
+            "title": "Comprehensive Periodontal & Maxillofacial Clinical Evaluation",
+            "file_content": "Comprehensive clinical examination documenting severe generalized periodontitis and systemic diabetic complications.",
+            "metadata": {"clinician": "Dr. Sarah Jenkins, DDS", "specialty": "Periodontics"},
+            "upload_timestamp": "2026-02-15T14:20:00Z",
+            "verification_hash": hashlib.sha256(b"Comprehensive clinical examination documenting severe generalized periodontitis and systemic diabetic complications.").hexdigest(),
+            "status": "attached",
+        }
+    ],
+}
+
 
 CARESTACK_PATIENT_ALIASES: Dict[str, str] = {
     "pat-1": "CS-2001",
@@ -411,7 +446,13 @@ MOCK_PATIENTS: List[CareStackPatient] = [
     ),
 ]
 
+# Populate initial attached_documents on MOCK_PATIENTS from seed CARESTACK_PATIENT_DOCUMENTS
+for _pt in MOCK_PATIENTS:
+    if _pt.id in CARESTACK_PATIENT_DOCUMENTS:
+        _pt.attached_documents = list(CARESTACK_PATIENT_DOCUMENTS[_pt.id])
+
 # Simulated active appointments
+
 MOCK_APPOINTMENTS: Dict[int, Dict[str, Any]] = {
     5001: {
         "Id": 5001,
@@ -1402,3 +1443,237 @@ async def trigger_sync(sync_req: CareStackSyncRequest):
             }
 
     raise HTTPException(status_code=404, detail=f"Patient {sync_req.patient_id} not found")
+
+
+# =====================================================================
+# CareStack Document Management Mock Endpoints (Step 9)
+# =====================================================================
+
+def _find_carestack_patient(patient_id: str) -> Optional[CareStackPatient]:
+    """Finds a CareStackPatient by ID, MRN, numeric suffix, or alias."""
+    clean_id = (patient_id or "").lower().strip()
+    canonical_id = CARESTACK_PATIENT_ALIASES.get(clean_id, clean_id.upper())
+
+    # Build comprehensive alias search keys
+    search_keys = {clean_id, canonical_id.lower()}
+    for k, v in CARESTACK_PATIENT_ALIASES.items():
+        if k == clean_id or v.lower() == canonical_id.lower() or v.lower() == clean_id:
+            search_keys.add(k.lower())
+            search_keys.add(v.lower())
+
+    clean_digits = "".join(c for c in clean_id if c.isdigit()).lstrip("0")
+
+    for p in MOCK_PATIENTS:
+        p_id_lower = p.id.lower()
+        p_mrn_lower = p.mrn.lower()
+        p_digits = "".join(c for c in p.id if c.isdigit()).lstrip("0")
+        p_mrn_digits = "".join(c for c in p.mrn if c.isdigit()).lstrip("0")
+
+        if (
+            p_id_lower in search_keys
+            or p_mrn_lower in search_keys
+            or (clean_digits and (clean_digits == p_digits or clean_digits == p_mrn_digits))
+            or (clean_digits in ("3", "1003", "2003") and p_digits in ("3", "1003", "2003"))
+        ):
+            return p
+    return None
+
+
+def save_patient_document(
+    patient_id: str,
+    document_type: str = "Letter of Medical Necessity",
+    title: str = "Clinical Document",
+    file_content: str = "",
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Ingests and attaches a clinical document to a CareStack patient chart.
+    Persists the document in patient.attached_documents and CARESTACK_PATIENT_DOCUMENTS.
+    Returns the created document record.
+    """
+    patient = _find_carestack_patient(patient_id)
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CareStack patient '{patient_id}' not found for document attachment.",
+        )
+
+    clean_id = (patient_id or "").lower().strip()
+    canonical_id = CARESTACK_PATIENT_ALIASES.get(clean_id, clean_id.upper())
+
+    doc_id = f"DOC-{uuid.uuid4().hex[:8].upper()}"
+    upload_timestamp = datetime.now(timezone.utc).isoformat()
+    content_str = file_content if isinstance(file_content, str) else str(file_content)
+    verification_hash = hashlib.sha256(content_str.encode("utf-8")).hexdigest()
+
+    doc_record = {
+        "document_id": doc_id,
+        "patient_id": patient.id,
+        "document_type": document_type or "Letter of Medical Necessity",
+        "title": title or f"Document {doc_id}",
+        "file_content": content_str,
+        "metadata": metadata or {},
+        "upload_timestamp": upload_timestamp,
+        "verification_hash": verification_hash,
+        "status": "attached",
+    }
+
+    # Persist in patient object's attached_documents array
+    if not hasattr(patient, "attached_documents") or patient.attached_documents is None:
+        patient.attached_documents = []
+    patient.attached_documents.append(doc_record)
+
+    # Persist in global dictionary across all alias keys
+    alias_keys = {patient.id, patient_id, canonical_id, patient.mrn}
+    if patient.id in ("CS-1003", "CS-2003"):
+        alias_keys.update({"CS-1003", "CS-2003", "patient-003", "pat-3", "mrn-10003"})
+
+    for k, v in CARESTACK_PATIENT_ALIASES.items():
+        if v.lower() == patient.id.lower() or (patient.id in ("CS-1003", "CS-2003") and v in ("CS-1003", "CS-2003")):
+            alias_keys.add(k)
+
+    for k in alias_keys:
+        if k not in CARESTACK_PATIENT_DOCUMENTS:
+            CARESTACK_PATIENT_DOCUMENTS[k] = []
+        if not any(d["document_id"] == doc_id for d in CARESTACK_PATIENT_DOCUMENTS[k]):
+            CARESTACK_PATIENT_DOCUMENTS[k].append(doc_record)
+
+    return doc_record
+
+
+@router.post(
+    "/patients/{patient_id}/documents",
+    status_code=status.HTTP_201_CREATED,
+    tags=["CareStack Document Management"],
+    summary="Ingest Clinical Document or Letter of Medical Necessity",
+    description=(
+        "Accepts multipart/form-data or JSON payload, computes SHA-256 verification hash, "
+        "persists document in patient's attached_documents record, and returns HTTP 201 with "
+        "document ID, upload timestamp, and verification hash."
+    ),
+)
+async def attach_patient_document(
+    patient_id: str,
+    request: Request,
+):
+    """
+    POST /api/carestack/patients/{patient_id}/documents
+    Accepts multipart/form-data or JSON payload:
+    { document_type: "Letter of Medical Necessity", title: str, file_content: str, metadata: dict }.
+    Persists document under attached_documents and returns HTTP 201.
+    """
+    content_type = request.headers.get("content-type", "")
+    document_type = "Letter of Medical Necessity"
+    title = "Clinical Document"
+    file_content = ""
+    metadata = {}
+
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        document_type = body.get("document_type", document_type)
+        title = body.get("title", title)
+        file_content = body.get("file_content", "")
+        metadata = body.get("metadata", {})
+    elif "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
+        try:
+            form = await request.form()
+            document_type = form.get("document_type") or document_type
+            title = form.get("title") or title
+            if "file" in form and hasattr(form["file"], "read"):
+                file_bytes = await form["file"].read()
+                file_content = file_bytes.decode("utf-8", errors="replace")
+            elif "file_content" in form:
+                file_content = str(form.get("file_content", ""))
+            raw_meta = form.get("metadata")
+            if isinstance(raw_meta, str):
+                try:
+                    metadata = json.loads(raw_meta)
+                except Exception:
+                    metadata = {"raw": raw_meta}
+            elif isinstance(raw_meta, dict):
+                metadata = raw_meta
+        except Exception:
+            # Fallback if form parsing fails
+            raw_body = (await request.body()).decode("utf-8", errors="replace")
+            file_content = raw_body
+    else:
+        # Fallback to json or raw body
+        try:
+            body = await request.json()
+            document_type = body.get("document_type", document_type)
+            title = body.get("title", title)
+            file_content = body.get("file_content", "")
+            metadata = body.get("metadata", {})
+        except Exception:
+            body_bytes = await request.body()
+            file_content = body_bytes.decode("utf-8", errors="replace")
+
+    doc_record = save_patient_document(
+        patient_id=patient_id,
+        document_type=document_type,
+        title=title,
+        file_content=file_content,
+        metadata=metadata,
+    )
+
+    return {
+        "status": "success",
+        "document_id": doc_record["document_id"],
+        "upload_timestamp": doc_record["upload_timestamp"],
+        "verification_hash": doc_record["verification_hash"],
+        "document": doc_record,
+    }
+
+
+@router.get(
+    "/patients/{patient_id}/documents",
+    tags=["CareStack Document Management"],
+    summary="Retrieve Attached Documents for Patient Chart",
+    description="Returns all clinical documents, insurance pre-authorizations, and letters attached to the patient chart.",
+)
+async def get_patient_documents(patient_id: str, request: Request):
+    """
+    GET /api/carestack/patients/{patient_id}/documents
+    Returns all clinical documents, insurance pre-authorizations, and letters attached to the patient chart.
+    Supports ?wrapped=true to return structured dictionary with document_count.
+    """
+    patient = _find_carestack_patient(patient_id)
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CareStack patient '{patient_id}' not found",
+        )
+
+    clean_id = (patient_id or "").lower().strip()
+    canonical_id = CARESTACK_PATIENT_ALIASES.get(clean_id, clean_id.upper())
+
+    # Gather documents from patient and from all known aliases
+    docs = list(getattr(patient, "attached_documents", []) or [])
+    existing_ids = {d["document_id"] for d in docs}
+
+    query_keys = {clean_id, canonical_id, patient.id, patient.mrn}
+    if patient.id in ("CS-1003", "CS-2003"):
+        query_keys.update({"CS-1003", "CS-2003", "patient-003", "pat-3", "mrn-10003"})
+
+    for k in query_keys:
+        for cd in CARESTACK_PATIENT_DOCUMENTS.get(k, []):
+            if cd["document_id"] not in existing_ids:
+                docs.append(cd)
+                existing_ids.add(cd["document_id"])
+
+    # If caller specifically requests wrapped dict format
+    if request.query_params.get("wrapped", "").lower() in ("true", "1", "yes"):
+        return {
+            "patient_id": patient_id,
+            "canonical_patient_id": patient.id,
+            "document_count": len(docs),
+            "documents": docs,
+        }
+
+
+    return docs
+
+
