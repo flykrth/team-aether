@@ -15,7 +15,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from .. import patient_registry
 from .context import turn_last_user_message
 
-CHART_ACTION_TOOLS = {"update_patient_details", "update_history_item", "remove_history_item"}
+CHART_ACTION_TOOLS = {"update_patient_details", "update_history_item", "remove_history_item", "remove_patient"}
 
 _REMOVAL_VERBS = r"\b(remove|delete|erase|drop|clear|take off|strike|discontinue[sd]?|stopped|no longer|not (?:on|taking)|wrong|mistake|incorrect)\b"
 _EDITABLE_DETAILS = ("first_name", "last_name", "birth_date", "gender", "phone", "email", "next_appointment", "primary_dentist")
@@ -85,6 +85,26 @@ async def remove_history_item(patient_id: str, resource_id: str) -> Dict[str, An
     return await _refreshed(patient_id, f"Removed '{item['text'] if item else resource_id}' from the chart")
 
 
+async def remove_patient(patient_id: str) -> Dict[str, Any]:
+    """Whole-chart deletion: the user's own message must ask for it AND name the patient (ID, MRN or name)."""
+    said = (turn_last_user_message.get() or "").lower()
+    try:
+        chart = patient_registry.get_chart(patient_id)
+    except KeyError as exc:
+        return _fail(exc)
+    labels = [chart["patient_id"], chart["mrn"], chart["name"], *chart["name"].split()]
+    asked = re.search(r"\b(remove|delete|erase)\b", said)
+    named = any(label and len(label) > 2 and label.lower() in said for label in labels)
+    if not (asked and named):
+        return {"ok": False, "message": f"Removing a patient deletes the whole chart. The user's message must ask to remove/delete "
+                                        f"and name the patient. Ask them to confirm: 'Remove {chart['name']} ({chart['patient_id']})?'"}
+    try:
+        result = patient_registry.delete_patient(patient_id)
+    except KeyError as exc:
+        return _fail(exc)
+    return {"ok": True, "change": f"Removed {result['name']} ({result['deleted']}) and the whole chart", **result}
+
+
 _PATIENT = {"type": "string", "description": "CareStack ID, MRN or alias, e.g. CS-9921"}
 _ITEM = {"type": "string", "description": "resource_id of the history item, exactly as returned by get_patient_chart. Never guess it."}
 
@@ -126,7 +146,15 @@ CHART_TOOL_DECLARATIONS: List[Dict[str, Any]] = [
     },
 ]
 
+CHART_TOOL_DECLARATIONS.append({
+    "name": "remove_patient",
+    "description": ("ACTION, destructive and permanent. Remove a patient and their entire chart from the practice. Only when the "
+                    "user explicitly asks to remove/delete that patient by name or ID; the server refuses otherwise. If there is "
+                    "any doubt which patient is meant, ask first."),
+    "parameters": {"type": "object", "properties": {"patient_id": _PATIENT}, "required": ["patient_id"]},
+})
+
 CHART_TOOL_FUNCTIONS: Dict[str, Callable[..., Awaitable[Dict[str, Any]]]] = {
-    f.__name__: f for f in (get_patient_chart, update_patient_details, update_history_item, remove_history_item)
+    f.__name__: f for f in (get_patient_chart, update_patient_details, update_history_item, remove_history_item, remove_patient)
 }
 assert set(CHART_TOOL_FUNCTIONS) == {d["name"] for d in CHART_TOOL_DECLARATIONS}

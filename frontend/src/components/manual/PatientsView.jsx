@@ -237,6 +237,7 @@ export function PatientsView({ onCheckRisk, refreshKey }) {
   const [error, setError] = useState(null);
   const [importRecord, setImportRecord] = useState(null);
   const [importBusy, setImportBusy] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const loadPatients = useCallback(async () => {
     try {
@@ -266,6 +267,16 @@ export function PatientsView({ onCheckRisk, refreshKey }) {
   const deleteEntry = async (entry) => { await api.deleteHistoryEntry(chart.patient_id, entry.resource_id); await loadChart(chart.patient_id); };
   const addEntry = async (entry) => { const res = await api.addHistoryEntries(chart.patient_id, [entry], 'manual'); await loadChart(chart.patient_id); return res; };
   const saveDetails = async (changes) => { await api.updatePatient(chart.patient_id, changes); await Promise.all([loadChart(chart.patient_id), loadPatients()]); setMode('view'); };
+  const removePatient = async () => {
+    setRemoving(true); setError(null);
+    try {
+      await api.deleteRecordPatient(chart.patient_id);
+      const list = await api.listRecordPatients();
+      setPatients(list); setChart(null); setMode('view');
+      setSelectedId(list[0]?.patient_id || null);
+    } catch (err) { setError(errText(err)); } finally { setRemoving(false); }
+  };
+
   const runImport = async () => {
     setImportBusy(true); setError(null);
     try {
@@ -330,6 +341,9 @@ export function PatientsView({ onCheckRisk, refreshKey }) {
                   {chart.editable_details && <button onClick={() => setMode(mode === 'edit-details' ? 'view' : 'edit-details')} className="btn-ghost !bg-white"><Pencil className="w-4 h-4" strokeWidth={1.5} /> Edit details</button>}
                   <button onClick={() => setMode(mode === 'import' ? 'view' : 'import')} className="btn-ghost !bg-white"><FileUp className="w-4 h-4" strokeWidth={1.5} /> Add record</button>
                   <button onClick={() => onCheckRisk?.(chart.patient_id)} className="btn-dark"><ShieldAlert className="w-4 h-4" strokeWidth={1.5} /> Check risk</button>
+                  <button onClick={() => setMode(mode === 'remove' ? 'view' : 'remove')} className="icon-btn-white !text-danger hover:!bg-danger-light" aria-label={`Remove ${chart.name}`} title="Remove patient">
+                    <Trash2 className="w-[18px] h-[18px]" strokeWidth={1.5} />
+                  </button>
                 </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
@@ -347,6 +361,22 @@ export function PatientsView({ onCheckRisk, refreshKey }) {
                 </div>
               </div>
             </div>
+
+            {mode === 'remove' && (
+              <div className="rounded-4xl bg-danger-light text-danger-dark p-6 animate-fade-in" role="alertdialog" aria-label="Confirm removal">
+                <h3 className="font-display text-xl font-medium">Remove {chart.name}?</h3>
+                <p className="text-sm mt-2">
+                  This deletes the patient and the whole chart: {chart.entries.length} history item{chart.entries.length === 1 ? '' : 's'}
+                  {chart.documents.length ? `, ${chart.documents.length} document${chart.documents.length === 1 ? '' : 's'}` : ''} and the treatment plan. It cannot be undone.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <button onClick={removePatient} disabled={removing} className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-full bg-danger text-white font-display font-semibold text-[15px] hover:bg-danger-dark disabled:opacity-40">
+                    {removing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" strokeWidth={1.5} />} Remove patient
+                  </button>
+                  <button autoFocus onClick={() => setMode('view')} className="btn-ghost !bg-white">Keep patient</button>
+                </div>
+              </div>
+            )}
 
             {mode === 'edit-details' && <DetailsForm chart={chart} onSave={saveDetails} onCancel={() => setMode('view')} />}
 

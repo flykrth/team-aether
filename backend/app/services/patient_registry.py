@@ -124,7 +124,7 @@ def _empty_state() -> Dict[str, Any]:
     return {
         "version": 1, "patients": [], "fhir": [], "fhir_aliases": {}, "cs_aliases": {}, "documents": [],
         # Edits to data this registry did not create (seeded demo patients): applied on top at load
-        "fhir_overrides": {}, "fhir_deleted": [], "patient_overrides": {},
+        "fhir_overrides": {}, "fhir_deleted": [], "patient_overrides": {}, "patients_deleted": [],
     }
 
 
@@ -846,9 +846,49 @@ _TYPE_OF_RESOURCE = {v: k for k, v in _RESOURCE_TYPE.items()}
 _DEMOGRAPHIC_FIELDS = ("first_name", "last_name", "birth_date", "gender", "phone", "email", "next_appointment", "primary_dentist")
 
 
+def _hide_seeded_patient(cs_id: str) -> None:
+    """Takes a seeded patient (one this registry did not create) out of the in-memory stores."""
+    carestack = carestack_services()
+    patient = next((p for p in carestack.MOCK_PATIENTS if p.id == cs_id), None)
+    if patient is None:
+        return
+    linked = clearance_service()._resolve_patient_info(cs_id).get("fhir_patient")
+    if linked:
+        fhir_id = linked["id"].lower()
+        for bucket in fhir_client._local_cache.values():
+            bucket[:] = [r for r in bucket if (r.get("id") or "").lower() != fhir_id and _subject_id(r) != fhir_id]
+    carestack.MOCK_PATIENTS[:] = [p for p in carestack.MOCK_PATIENTS if p.id != cs_id]
+    for key in (cs_id, cs_id.lower(), patient.mrn):
+        carestack.PATIENT_MEDICAL_ALERTS.pop(key, None)
+        carestack.CARESTACK_PATIENT_DOCUMENTS.pop(key, None)
+
+
+def delete_patient(patient_id: str) -> Dict[str, Any]:
+    """
+    Removes a patient and the whole chart. A patient added at runtime is erased; a seeded demo patient is hidden
+    and the removal is persisted, so it stays gone after a restart (deleting runtime_registry.json brings it back).
+    """
+    _ensure_loaded()
+    cs_patient = carestack_services()._find_carestack_patient(patient_id)
+    if not cs_patient:
+        raise KeyError(f"No CareStack chart matches '{patient_id}'")
+    cs_id, name = cs_patient.id, f"{cs_patient.first_name} {cs_patient.last_name}"
+    created_here = any(p["id"] == cs_id for p in _state["patients"])
+    remove_patient(cs_id)  # everything this registry added: runtime history, documents, aliases, the patient itself
+    if not created_here:
+        _hide_seeded_patient(cs_id)
+        if cs_id not in _state["patients_deleted"]:
+            _state["patients_deleted"].append(cs_id)
+    _state["patient_overrides"].pop(cs_id, None)
+    _save()
+    return {"deleted": cs_id, "name": name, "seeded": not created_here}
+
+
 def _apply_edits() -> None:
     """Re-applies persisted overrides/deletions/demographic edits on top of seeded + runtime data."""
     carestack = carestack_services()
+    for cs_id in _state["patients_deleted"]:
+        _hide_seeded_patient(cs_id)
     deleted = set(_state["fhir_deleted"])
     for bucket in fhir_client._local_cache.values():
         bucket[:] = [r for r in bucket if r.get("id") not in deleted]

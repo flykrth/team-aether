@@ -130,7 +130,7 @@ def test_endpoints_without_key():
     with TestClient(app) as client:
         status = client.get("/api/assistant/status").json()
         assert status["configured"] is False and status["provider"] is None
-        assert len(status["tools"]) == len(tools.TOOL_DECLARATIONS) == 16
+        assert len(status["tools"]) == len(tools.TOOL_DECLARATIONS) == 17
         resp = client.post("/api/assistant/chat", json={"messages": [{"role": "user", "content": "hi"}]})
         assert resp.status_code == 503 and "GEMINI_API_KEY" in resp.json()["detail"]
 

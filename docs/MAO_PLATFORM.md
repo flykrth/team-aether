@@ -561,6 +561,8 @@ patient details and the treatment plan are editable. It is backed by:
 - `PATCH` / `DELETE /api/records/patients/{id}/history/{resource_id}`: an edited item goes back
   through the same lexicon as a new one (edit "warfarin" to "apixaban" and the RxNorm code follows)
   and keeps its id. An item can only be changed through the chart it belongs to.
+- **Remove patient** (trash button on the chart, with a confirmation that lists what will be lost): `DELETE /api/records/patients/{id}`.
+  The agent has `remove_patient` too, refused unless the user's own message asks to remove/delete AND names the patient.
 - Edits to seeded demo patients are stored as overrides (`fhir_overrides`, `fhir_deleted`,
   `patient_overrides` in `runtime_registry.json`) and re-applied at load, so they survive restarts
   without modifying `synthetic_ehr.json`.
@@ -790,6 +792,7 @@ loops and Groq Whisper are verified against mocks; live verification needs the c
 | POST | `/api/records/extract` | `{text}` | `{entries:[{type, text, code, system, display, onset?, value?, unit?, evidence}]}` (writes nothing) | |
 | POST | `/api/records/patients/{patient_id}/import` | `{title, text, record_date?, source_facility?, entries?}` (`entries` omitted means extract from text; `[]` files the document only) | `{patient_id, document_id, added, skipped_duplicates, unrecognized}` | 404, 422 |
 | GET | `/api/records/patients/{patient_id}/chart` | | Editable chart: details, `planned_procedures`, `documents`, `entries:[{resource_id, type, text, code, system, onset, value, unit, unconfirmed}]` | 404 |
+| DELETE | `/api/records/patients/{patient_id}` | | `{deleted, name, seeded}`. Removes the patient and the whole chart. A runtime patient is erased; a seeded demo patient is hidden and the removal persisted (`patients_deleted`), so it survives restarts | 404 |
 | PATCH | `/api/records/patients/{patient_id}` | any of `first_name, last_name, birth_date, gender, phone, email, next_appointment, primary_dentist, planned_procedures` | Updated chart | 404, 422 |
 | PATCH | `/api/records/patients/{patient_id}/history/{resource_id}` | any of `type, text, onset, value, unit` | Updated entry + `recognized` | 404, 422 |
 | DELETE | `/api/records/patients/{patient_id}/history/{resource_id}` | | `{deleted}` | 404 |

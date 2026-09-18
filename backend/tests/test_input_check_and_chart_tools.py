@@ -141,3 +141,50 @@ def test_chart_edits_are_actions_and_blocked_after_an_import():
     assert chart_edit_tools.CHART_ACTION_TOOLS <= tools.ACTION_TOOLS
     assert not chart_edit_tools.CHART_ACTION_TOOLS & tools.RECORD_ACTION_TOOLS  # so execute_tool's import gate covers them
     assert "get_patient_chart" not in tools.ACTION_TOOLS
+
+
+# -- removing a patient ------------------------------------------------------------------------------
+
+def test_delete_runtime_patient_erases_everything(patient):
+    with TestClient(app) as client:
+        assert client.delete(f"/api/records/patients/{patient}").json()["seeded"] is False
+        assert client.get(f"/api/records/patients/{patient}/chart").status_code == 404
+        assert patient not in [p["patient_id"] for p in client.get("/api/records/patients").json()]
+        assert client.delete(f"/api/records/patients/{patient}").status_code == 404
+
+
+def test_delete_seeded_patient_is_persisted_across_reloads(tmp_path, monkeypatch):
+    from app.schemas.carestack import CareStackPatient
+    carestack = tools.carestack_services()
+    monkeypatch.setenv("MDIN_RUNTIME_REGISTRY", str(tmp_path / "registry.json"))
+    patient_registry.load_runtime_registry()
+    seeded = CareStackPatient(id="CS-7777", mrn="MRN-77770", first_name="Seeded", last_name="Person", birth_date="1970-01-01", gender="other")
+    carestack.MOCK_PATIENTS.append(seeded)  # stands in for a patient that ships with the app
+    try:
+        assert patient_registry.delete_patient("CS-7777") == {"deleted": "CS-7777", "name": "Seeded Person", "seeded": True}
+        assert not any(p.id == "CS-7777" for p in carestack.MOCK_PATIENTS)
+        carestack.MOCK_PATIENTS.append(seeded)      # a restart re-seeds it...
+        patient_registry.load_runtime_registry()    # ...and the persisted removal hides it again
+        assert not any(p.id == "CS-7777" for p in carestack.MOCK_PATIENTS)
+    finally:
+        carestack.MOCK_PATIENTS[:] = [p for p in carestack.MOCK_PATIENTS if p.id != "CS-7777"]
+        monkeypatch.delenv("MDIN_RUNTIME_REGISTRY")
+        patient_registry.load_runtime_registry()
+
+
+@pytest.mark.anyio
+async def test_agent_removes_a_patient_only_when_asked_by_name(patient):
+    for said in ("what is she taking?", "delete the patient", "tell me about Edita Blecase"):
+        token = turn_last_user_message.set(said)
+        try:
+            assert (await chart_edit_tools.remove_patient(patient))["ok"] is False
+        finally:
+            turn_last_user_message.reset(token)
+    assert patient_registry.get_chart(patient)["name"] == "Edita Blecase"
+    token = turn_last_user_message.set("Please remove Edita Blecase from the practice")
+    try:
+        assert (await chart_edit_tools.remove_patient(patient))["ok"] is True
+    finally:
+        turn_last_user_message.reset(token)
+    with pytest.raises(KeyError):
+        patient_registry.get_chart(patient)

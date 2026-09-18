@@ -11,7 +11,7 @@ const MAX_STORED_ATTACHMENT_CHARS = 60000; // sessionStorage is ~5 MB: keep long
 // Widgets that mean the patient registry changed and the rest of the app should refetch.
 const REGISTRY_WIDGETS = new Set(['patient_created', 'history_updated']);
 // Tools that changed an existing chart (their widget is a plain patient_summary, so the widget alone does not say so).
-const CHART_EDIT_TOOLS = new Set(['update_patient_details', 'update_history_item', 'remove_history_item']);
+const CHART_EDIT_TOOLS = new Set(['update_patient_details', 'update_history_item', 'remove_history_item', 'remove_patient']);
 // Widgets whose data names the patient the conversation is now about.
 const FOCUS_WIDGETS = new Set(['patient_created', 'patient_summary', 'history_updated', 'agent_workflow']);
 

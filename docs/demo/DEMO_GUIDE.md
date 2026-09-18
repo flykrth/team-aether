@@ -123,9 +123,10 @@ under a patient it guessed, so the server now refuses unless the user asks and n
 | What if the AI provider is down? | Transient errors retry; the master fails over to another provider; extraction and risk check fall back to rules alone. |
 | Is this HIPAA compliant? | All data here is synthetic. Real use needs a BAA with each AI provider; PDFs with a text layer are read locally and never leave the machine. |
 | What is simulated? | CareStack, the hospital EHR and the physician inbox are simulators. The billing rule that lets a stent justify CPT 41899 is a demo heuristic. |
-| How is it tested? | 311 backend tests, including the safety gates and regressions for bugs found in live testing. |
+| How is it tested? | 315 backend tests, including the safety gates and regressions for bugs found in live testing. |
 
 ## Reset between demos
 
-Patients you add are saved in `backend/app/data/runtime_registry.json`. Delete that file and restart the
-backend to return to the seeded patients.
+Remove a demo patient with the trash button on their chart (Manual → Patients), or tell the agent
+`Remove Margaret Ellis from the practice`. To reset everything, including removed seeded patients, delete
+`backend/app/data/runtime_registry.json` and restart the backend.

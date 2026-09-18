@@ -13,6 +13,7 @@ export const TOOL_LABELS = {
   update_patient_details: 'Updated patient details',
   update_history_item: 'Edited a history item',
   remove_history_item: 'Removed a history item',
+  remove_patient: 'Removed a patient',
   add_medical_history: 'Added medical history',
   import_previous_record: 'Imported previous record',
   consult_specialists: 'Consulted specialists in parallel',

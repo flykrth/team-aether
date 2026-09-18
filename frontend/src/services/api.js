@@ -49,6 +49,7 @@ export const api = {
 
   // Manual mode: editable chart, file ingestion, risk check
   getPatientChart: (patientId) => fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}/chart`),
+  deleteRecordPatient: (patientId) => fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}`, { method: 'DELETE' }),
   updatePatient: (patientId, changes) =>
     fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}`, { method: 'PATCH', body: JSON.stringify(changes) }),
   updateHistoryEntry: (patientId, resourceId, changes) =>

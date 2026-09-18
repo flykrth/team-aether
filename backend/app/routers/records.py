@@ -161,6 +161,11 @@ class HistoryEntryUpdate(BaseModel):
     unit: Optional[str] = Field(None, max_length=40)
 
 
+@router.delete("/patients/{patient_id}", summary="Remove a Patient and the Whole Chart")
+async def delete_patient(patient_id: str) -> Dict[str, Any]:
+    return _call(patient_registry.delete_patient, patient_id)
+
+
 @router.get("/patients/{patient_id}/chart", summary="Editable Chart (every history item carries its id)")
 async def get_chart(patient_id: str) -> Dict[str, Any]:
     return _call(patient_registry.get_chart, patient_id)
