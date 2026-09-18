@@ -71,6 +71,16 @@ CARESTACK_PATIENT_ALIASES: Dict[str, str] = {
     "mrn-10003": "CS-2003",
     "cs-1003": "CS-2003",
     "cs-2003": "CS-2003",
+    "pat-4": "CS-2004",
+    "patient-004": "CS-2004",
+    "patient-4": "CS-2004",
+    "mrn-10004": "CS-2004",
+    "cs-2004": "CS-2004",
+    "pat-5": "CS-2005",
+    "patient-005": "CS-2005",
+    "patient-5": "CS-2005",
+    "mrn-10005": "CS-2005",
+    "cs-2005": "CS-2005",
 }
 
 # =====================================================================
@@ -338,6 +348,50 @@ MOCK_PATIENTS: List[CareStackPatient] = [
                 tooth_number="30",
                 status="proposed",
                 cost=1250.0,
+            )
+        ],
+    ),
+    CareStackPatient(
+        id="CS-2004",
+        mrn="MRN-10004",
+        first_name="Marcus",
+        last_name="Chen",
+        birth_date="1985-06-14",
+        gender="male",
+        email="marcus.chen@example.com",
+        phone="555-0104",
+        last_visit="2026-02-14",
+        next_appointment="2026-09-28 10:00:00",
+        primary_dentist="Dr. Alan Vance, DMD",
+        active_treatment_plan=[
+            DentalProcedure(
+                code="D7210",
+                description="Extraction, erupted tooth requiring removal of bone and/or sectioning of tooth",
+                tooth_number="17",
+                status="proposed",
+                cost=480.0,
+            )
+        ],
+    ),
+    CareStackPatient(
+        id="CS-2005",
+        mrn="MRN-10005",
+        first_name="Sarah",
+        last_name="Jenkins",
+        birth_date="1972-03-29",
+        gender="female",
+        email="sarah.jenkins@example.com",
+        phone="555-0105",
+        last_visit="2026-03-01",
+        next_appointment="2026-09-29 11:30:00",
+        primary_dentist="Dr. Sarah Mitchell, DDS",
+        active_treatment_plan=[
+            DentalProcedure(
+                code="D7286",
+                description="Incisional biopsy of oral tissue",
+                tooth_number="Buccal Mucosa",
+                status="proposed",
+                cost=350.0,
             )
         ],
     ),

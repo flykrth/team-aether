@@ -106,7 +106,16 @@ class FHIRTerminologyEngine:
             return
         with open(TERMINOLOGY_MAP_FILE, "r", encoding="utf-8") as f:
             raw = json.load(f)
-        self.concept_maps.append(ConceptMapResource.model_validate(raw))
+        if isinstance(raw, list):
+            for item in raw:
+                self.concept_maps.append(ConceptMapResource.model_validate(item))
+        elif isinstance(raw, dict) and raw.get("resourceType") == "Bundle":
+            for entry in raw.get("entry", []):
+                res = entry.get("resource", {})
+                if res.get("resourceType") == "ConceptMap":
+                    self.concept_maps.append(ConceptMapResource.model_validate(res))
+        else:
+            self.concept_maps.append(ConceptMapResource.model_validate(raw))
 
     def _find_matches(self, source_system: str, source_code: str) -> List[TranslateMatch]:
         """Find all target matches for a given source system + code across loaded ConceptMaps."""

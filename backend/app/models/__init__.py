@@ -33,6 +33,13 @@ from .cds_hooks import (
     CDSCard,
     CDSResponse,
 )
+from .claims import (
+    DiagnosisCode,
+    ClaimServiceLine,
+    BillingProvider,
+    CMS1500Claim,
+    CrossCodingOpportunity,
+)
 
 __all__ = [
     "Coding",
@@ -62,4 +69,9 @@ __all__ = [
     "CDSSource",
     "CDSCard",
     "CDSResponse",
+    "DiagnosisCode",
+    "ClaimServiceLine",
+    "BillingProvider",
+    "CMS1500Claim",
+    "CrossCodingOpportunity",
 ]

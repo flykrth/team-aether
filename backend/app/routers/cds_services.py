@@ -160,3 +160,27 @@ async def evaluate_prophylaxis_legacy(request: CDSRequest) -> CDSResponse:
             )
         )
     return response
+
+
+# --- Administrative Decision Support: Cross-Coding Bridge ---
+
+from .billing import EvaluateClaimRequest
+from ..models.claims import CrossCodingOpportunity
+from ..services.crosswalk_engine import crosswalk_engine
+
+
+@router.post("/evaluate-claim", response_model=CrossCodingOpportunity)
+async def evaluate_claim_cds_bridge(request: EvaluateClaimRequest) -> CrossCodingOpportunity:
+    """
+    Administrative CDS cross-coding endpoint exposed under /cds-services/evaluate-claim.
+    """
+    if request.conditions is not None:
+        return crosswalk_engine.evaluate_cross_coding(
+            cdt_code=request.cdt_code,
+            patient_conditions=request.conditions,
+            patient_demographics=request.demographics,
+        )
+    return crosswalk_engine.evaluate_patient(
+        patient_id=request.patient_id,
+        cdt_code=request.cdt_code,
+    )

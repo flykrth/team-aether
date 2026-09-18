@@ -29,7 +29,13 @@ def test_terminology_maps_file_and_schema():
     with open(data_path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    cm = ConceptMapResource.model_validate(raw)
+    if isinstance(raw, list):
+        contra_raw = next((item for item in raw if item.get("id") == "medical-to-dental-contraindications"), None)
+        assert contra_raw is not None, "medical-to-dental-contraindications must be present"
+        cm = ConceptMapResource.model_validate(contra_raw)
+    else:
+        cm = ConceptMapResource.model_validate(raw)
+
     assert cm.resourceType == "ConceptMap"
     assert cm.id == "medical-to-dental-contraindications"
     assert cm.status == "active"
