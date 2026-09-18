@@ -53,7 +53,7 @@ class InsuranceUpdate(BaseModel):
 class CaseForm(BaseModel):
     patient_id: str = Field(..., max_length=80)
     region: str = Field("US", max_length=4)
-    procedure: str = Field(..., min_length=2, max_length=300)
+    procedure: str = Field("", max_length=300, description="Optional when the patient has a visit in progress: the visit's procedure is used")
     diagnosis: str = Field("", max_length=300)
     diagnosis_codes: str = Field("", max_length=120)
     imaging: str = Field("", max_length=400)
@@ -115,12 +115,15 @@ async def analyze(form: CaseForm) -> Dict[str, Any]:
         result = await analyst.analyze(form.model_dump())
     except KeyError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e).strip("'\""))
-    if result.get("facts"):
-        packet.remember(result)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     return result
 
 
 @router.post("/packet", summary="Produce the Pre-treatment Estimate Request or the Patient Explanation")
 async def make_packet(request: PacketRequest) -> Dict[str, Any]:
     chart_id = _guard(plans._resolve, request.patient_id)
-    return _guard(packet.build, chart_id, request.reviewed_by)
+    document = _guard(packet.build, chart_id, request.reviewed_by)
+    from ..services import visits
+    visits.add_document(chart_id, document)
+    return document

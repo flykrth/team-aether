@@ -24,8 +24,8 @@ cd frontend && npm run dev                                          # http://loc
 the seeded patients, and the sample files. It prints `Ready.` or tells you exactly what to fix.
 (If your backend is on port 8000: `API=http://localhost:8000 ./docs/demo/preflight.sh`.)
 
-**First run on a new machine:** the policy library is not in git (payer documents are copyrighted). Open
-*Manual → Coverage recovery* and press **Refresh sources**. Downloading takes seconds; the semantic index then builds in
+**First run on a new machine:** the policy library is not in git (payer documents are copyrighted). Open the
+*Insurance* step of a visit, expand **Policy library** and press **Refresh sources**. Downloading takes seconds; the semantic index then builds in
 the background at the free tier's 100 passages per minute (about 6 minutes). Search works while it builds.
 
 ### Check it without the UI
@@ -45,7 +45,9 @@ cd backend && python -m pytest tests/test_coverage_recovery.py -q               
 
 ## 2. Set up the patient (30 seconds)
 
-*Manual → Coverage recovery*, pick **John Doe** (or add a fresh patient in *Patients* if you want a chart with no
+*Manual → Visit*, pick a patient, run the **Risk check** for the procedure, press **The procedure has been carried out**,
+and you land on **Insurance** (the coverage check, with the procedure and notes already filled in). To try the cases below
+quickly, open *Clinical detail for the insurer* and paste the text there. Pick **John Doe** (or add a fresh patient in *Patients* if you want a chart with no
 medical history), then in **Insurance**:
 Dental benefit **Annual maximum used up** · Medical insurer **Aetna** · Plan type **PPO**.
 

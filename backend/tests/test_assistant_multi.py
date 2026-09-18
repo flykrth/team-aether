@@ -277,6 +277,9 @@ def test_widget_mapping_covers_the_contract():
         # chart edits show the refreshed patient card
         "update_patient_details": "patient_summary", "update_history_item": "patient_summary",
         "remove_history_item": "patient_summary",
+        "check_medical_coverage_pathway": "coverage_result",
+        "get_visit": "visit_status", "mark_procedure_done": "visit_status", "set_patient_insurance": "visit_status",
+        "attach_plan_document": "visit_status", "close_visit": "visit_status",
     }
     assert set(orchestrator.WIDGET_TYPES) <= set(tools.TOOL_FUNCTIONS)
 

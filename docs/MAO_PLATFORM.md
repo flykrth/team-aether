@@ -538,7 +538,7 @@ to `sessionStorage`, so switching modes does not lose it. (The earlier tabbed sh
 ### 4.9 Manual mode: Patients, Risk check, and PDF records
 
 Manual mode (`frontend/src/App.jsx`) is a slim icon rail with four views: **Patients**, **Risk
-check**, **Coverage recovery** and **Physician portal**. The mode and view are
+check**, **Coverage recovery** and **Physician portal** (since consolidated into Patients, **Visit** and Physician portal: see 4.9b). The mode and view are
 remembered in `localStorage`.
 
 **Patients** (`components/manual/PatientsView.jsx`) is a searchable list plus the selected chart.
@@ -642,6 +642,49 @@ with its id), `update_patient_details` (name, date of birth, contact, appointmen
 `update_history_item` and `remove_history_item`. Edited text is re-coded by the lexicon (the model cannot pass codes),
 ids must come from the chart (a made-up id fails), removal is refused unless the user's own message asks for it, and
 all three are blocked in a turn that imported a previous record. Gemini calls retry twice on a transient 429/500/503.
+
+### 4.9b The visit workflow: one path from patient to insurance
+
+The separate screens are joined by a **visit** (`services/visits.py`, `routers/visits.py`, `components/visit/VisitView.jsx`):
+
+```mermaid
+flowchart LR
+    P[Patient<br/>add or pick] --> H[History<br/>on file, editable]
+    H --> R[Risk check<br/>procedure + today's notes]
+    R -->|starts the visit,<br/>keeps the context| D[Procedure<br/>marked as done]
+    D --> I{Dental benefit<br/>active?}
+    I -->|yes| B[Bill dental]
+    I -->|no| M[Medical pathway check<br/>section 4.10]
+    M --> X[Document, close visit]
+    B --> X
+```
+
+A visit is a small record per patient: the procedure (as typed, plus the CDT code the rules resolved), today's notes,
+what the risk check found, whether the procedure was carried out, the insurance outcome with its quotes, and the
+documents produced. Stages: `planned -> risk_checked -> procedure_done -> insurance_checked -> closed`. It decides
+nothing; it exists so nobody types anything twice:
+
+- `POST /api/risk/check` records itself on the visit (a different procedure starts a new visit).
+- `POST /api/coverage/analyze` takes the procedure, the notes and any clinical detail **from the visit** when the form
+  leaves them empty, and files its outcome back on it. Without a visit and without a procedure it says so (422).
+- The planned procedure is itself evidence: "completely bony impacted third molar" (D7240) sets the impacted-tooth
+  indication even if the note never repeats the word.
+- `GET /api/visits/patients/{id}` returns the visit, a one-sentence "what comes next", the insurance profile and past
+  visits. `POST .../procedure-done` and `POST .../close` move it along; a "needs review" outcome does not settle
+  insurance but the visit can still be closed.
+
+**Manual mode is now three items:** Patients, **Visit** (History, Risk check, Procedure, Insurance as one guided page;
+later steps stay locked until reached; the risk and coverage screens are embedded with their inputs already filled),
+and Physician portal.
+
+**The chat can drive all of it** (`assistant/visit_tools.py`): `assess_clinical_risk` (starts the visit),
+`get_visit`, `mark_procedure_done`, `set_patient_insurance`, `attach_plan_document`, `check_medical_coverage_pathway`
+(no procedure needed: the visit has it), `create_coverage_document`, `close_visit`. Every workflow tool returns
+`next_step`, and the assistant is told to say what comes next after each one. Guards found necessary in live runs:
+a procedure code may come from the user or the rules, never the model (an invented "D7241" is discarded and the user's
+words are resolved instead); no paperwork for a "needs review" outcome, and the assistant must say so plainly rather
+than claim a step succeeded; a plan document from an attachment needs the user to ask for it.
+`tests/test_visit_workflow.py` runs the whole path twice, over the API and through the chat tools.
 
 ### 4.10 Dental Coverage Recovery Agent
 
@@ -882,7 +925,7 @@ lines once in the actual room.
 | 2:00 | Tap the mic: **"Add a new patient, Maria Alvarez, born March 14th 1958. She takes warfarin for atrial fibrillation, has type 2 diabetes, and needs a D7210."** | "We never opened a form. The model only routed that sentence. The backend coded it: warfarin is RxNorm 11289, atrial fibrillation is I48.91, diabetes is E11.9. If I had said something it does not know, it would store it as plain text and tell me, not guess a code." |
 | 2:25 | Manual mode, **Coverage recovery**: dental benefit "annual maximum used up", procedure *D7240 bony impacted third molar*, note *recurrent pericoronitis with swelling* | "Her dental benefit is used up. Is there a genuine medical pathway? It reads Aetna's published policy and shows the exact sentence. It says potential pathway, plan not verified, never covered. Now the same check for a crown: no pathway, with Aetna's own exclusion. It tells you when not to bill." |
 | 2:40 | Open the patient records panel, Previous records tab, paste a short discharge summary, press **Preview what will be added** | "Old records come in the same way. Every extracted item shows the exact clause it came from, and you tick what to keep." |
-| 2:50 | Back to camera | "Deterministic rules decide. Language models listen, route and explain. 332 automated tests. Synthetic data, a simulated CareStack and EHR, and standards, FHIR, CDT, ICD-10, that map straight onto the real ones." |
+| 2:50 | Back to camera | "Deterministic rules decide. Language models listen, route and explain. 345 automated tests. Synthetic data, a simulated CareStack and EHR, and standards, FHIR, CDT, ICD-10, that map straight onto the real ones." |
 
 **If something fails live**: no mic permission or no speech key, the composer falls back to browser
 dictation, or just type the same sentences. If the model provider is down, the Risk check,

@@ -7,6 +7,8 @@ import { PatientCreatedWidget } from './PatientCreatedWidget';
 import { HistoryUpdatedWidget } from './HistoryUpdatedWidget';
 import { SpecialistPanelWidget } from './SpecialistPanelWidget';
 import { ChartAlertWidget } from './ChartAlertWidget';
+import { CoverageResultWidget } from './CoverageResultWidget';
+import { VisitStatusWidget } from './VisitStatusWidget';
 import { FallbackWidget } from './FallbackWidget';
 import { WidgetTone } from './parts';
 
@@ -22,6 +24,8 @@ export const WIDGET_REGISTRY = {
   history_updated: HistoryUpdatedWidget,
   specialist_panel: SpecialistPanelWidget,
   chart_alert: ChartAlertWidget,
+  coverage_result: CoverageResultWidget,
+  visit_status: VisitStatusWidget,
 };
 
 // Which tool produced each widget, to recover the call arguments from the turn's actions.

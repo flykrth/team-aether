@@ -33,6 +33,9 @@ WIDGET_TYPES = {
     "remove_history_item": "patient_summary",
     "consult_specialists": "specialist_panel",
     "post_chart_alert": "chart_alert",
+    "check_medical_coverage_pathway": "coverage_result",
+    "get_visit": "visit_status", "mark_procedure_done": "visit_status", "set_patient_insurance": "visit_status",
+    "attach_plan_document": "visit_status", "close_visit": "visit_status",
 }
 
 _WIDGET_TITLES = {
@@ -44,12 +47,14 @@ _WIDGET_TITLES = {
     "history_updated": "Medical history updated",
     "specialist_panel": "Specialist panel",
     "chart_alert": "Chart alert posted",
+    "coverage_result": "Insurance check",
+    "visit_status": "Visit",
 }
 
 
 def _widget_title(widget_type: str, call: Dict[str, Any]) -> str:
     args, result = call["args"], call["result"]
-    title = _WIDGET_TITLES[widget_type]
+    title = _WIDGET_TITLES.get(widget_type, widget_type.replace("_", " ").capitalize())  # a missing title must never take the chat down
     if widget_type == "patient_created" and result.get("already_existed"):
         title = "Patient already registered"
     subject = result.get("name") or result.get("patient_name")

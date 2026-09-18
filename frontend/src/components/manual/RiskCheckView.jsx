@@ -28,12 +28,12 @@ function Chips({ concepts, tone = 'bg-white' }) {
   );
 }
 
-export function RiskCheckView({ initialPatientId, onChartChanged }) {
+export function RiskCheckView({ initialPatientId, onChartChanged, embedded = false, initialProcedure = '', initialNotes = '', onChecked }) {
   const [patients, setPatients] = useState([]);
   const [patientId, setPatientId] = useState(initialPatientId || '');
   const [onFile, setOnFile] = useState(null);
-  const [notes, setNotes] = useState('');
-  const [procedure, setProcedure] = useState('');
+  const [notes, setNotes] = useState(initialNotes);
+  const [procedure, setProcedure] = useState(initialProcedure);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -94,6 +94,7 @@ export function RiskCheckView({ initialPatientId, onChartChanged }) {
       if (cleanNotes === null) return;
       const res = await api.riskCheck({ patient_id: patientId, procedure: cleanProcedure.trim(), current_notes: cleanNotes });
       setResult(res);
+      onChecked?.(res);
       // What the doctor learned today belongs on the chart: save it now, visibly, with undo.
       if (res.todays_entries?.length && res.reported_today?.length) {
         setSaved('saving');
@@ -151,7 +152,8 @@ export function RiskCheckView({ initialPatientId, onChartChanged }) {
   return (
     <div className="space-y-5">
       <div className="card">
-        <div className="flex flex-wrap items-end gap-4">
+        {!embedded && (
+        <div className="flex flex-wrap items-end gap-4 mb-6">
           <div className="flex-1 min-w-[220px]">
             <h1 className="display-lg">Risk check</h1>
             <p className="text-sm text-text-muted mt-1">What could be missed before this procedure, for this patient.</p>
@@ -163,8 +165,9 @@ export function RiskCheckView({ initialPatientId, onChartChanged }) {
             </select>
           </label>
         </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="well">
             <div className="eyebrow mb-3">History on file</div>
             {onFile === null ? <Loader2 className="w-4 h-4 animate-spin text-text-muted" /> : <Chips concepts={onFile} />}

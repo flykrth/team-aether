@@ -340,7 +340,7 @@ export function PatientsView({ onCheckRisk, refreshKey }) {
                 <div className="flex flex-wrap gap-2">
                   {chart.editable_details && <button onClick={() => setMode(mode === 'edit-details' ? 'view' : 'edit-details')} className="btn-ghost !bg-white"><Pencil className="w-4 h-4" strokeWidth={1.5} /> Edit details</button>}
                   <button onClick={() => setMode(mode === 'import' ? 'view' : 'import')} className="btn-ghost !bg-white"><FileUp className="w-4 h-4" strokeWidth={1.5} /> Add record</button>
-                  <button onClick={() => onCheckRisk?.(chart.patient_id)} className="btn-dark"><ShieldAlert className="w-4 h-4" strokeWidth={1.5} /> Check risk</button>
+                  <button onClick={() => onCheckRisk?.(chart.patient_id)} className="btn-dark"><ShieldAlert className="w-4 h-4" strokeWidth={1.5} /> Start visit</button>
                   <button onClick={() => setMode(mode === 'remove' ? 'view' : 'remove')} className="icon-btn-white !text-danger hover:!bg-danger-light" aria-label={`Remove ${chart.name}`} title="Remove patient">
                     <Trash2 className="w-[18px] h-[18px]" strokeWidth={1.5} />
                   </button>

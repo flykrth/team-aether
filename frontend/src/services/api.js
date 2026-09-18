@@ -47,6 +47,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  // Visit workflow
+  getVisit: (patientId) => fetchJson(`/api/visits/patients/${encodeURIComponent(patientId)}`),
+  markProcedureDone: (patientId, outcomeNote = '') =>
+    fetchJson(`/api/visits/patients/${encodeURIComponent(patientId)}/procedure-done`, { method: 'POST', body: JSON.stringify({ outcome_note: outcomeNote }) }),
+  closeVisit: (patientId) => fetchJson(`/api/visits/patients/${encodeURIComponent(patientId)}/close`, { method: 'POST', body: '{}' }),
+
   // Dental Coverage Recovery
   getCoverageSources: (region = 'US') => fetchJson(`/api/coverage/sources?region=${region}`),
   refreshCoverageSources: (region = 'US') => fetchJson(`/api/coverage/sources/refresh?region=${region}`, { method: 'POST' }),

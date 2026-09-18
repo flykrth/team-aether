@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 
 from .config import settings
-from .routers import carestack_router, fhir_router, cds_router, billing_router, clearance_router, agents_router, assistant_router, records_router, risk_router, coverage_router
+from .routers import carestack_router, fhir_router, cds_router, billing_router, clearance_router, agents_router, assistant_router, records_router, risk_router, coverage_router, visits_router
 from .services.carestack_client import describe_integration_mode
 from .services.agent_supervisor import agent_supervisor
 
@@ -55,6 +55,7 @@ app.include_router(agents_router, prefix="/api/agents", tags=["Multi-Agent Orche
 app.include_router(assistant_router, prefix="/api/assistant", tags=["MAO Assistant"])
 app.include_router(risk_router, prefix="/api/risk", tags=["Risk Check"])
 app.include_router(coverage_router, prefix="/api/coverage", tags=["Dental Coverage Recovery"])
+app.include_router(visits_router, prefix="/api/visits", tags=["Visit Workflow"])
 app.include_router(records_router, prefix="/api/records", tags=["Patient Records"])
 
 

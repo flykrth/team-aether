@@ -186,6 +186,21 @@ def code_tables(passages: List[Dict[str, Any]], cdt_code: str) -> List[Dict[str,
 
 
 async def analyze(form: Dict[str, Any], client: Optional[httpx.AsyncClient] = None) -> Dict[str, Any]:
+    """Runs the decision tree and files the outcome on the patient's visit, so the workflow knows insurance was checked."""
+    from .. import visits
+
+    result = await _analyze(form, client)
+    if result.get("facts"):
+        from . import packet
+        packet.remember(result)  # the document is built from this server-side copy, whoever asked (screen or chat)
+    visits.save_clinical_details(result["patient_id"], form)
+    visit = visits.record_insurance_check(result["patient_id"], result)
+    result["visit"] = visit
+    result["next_step"] = visits.next_step(result["patient_id"])
+    return result
+
+
+async def _analyze(form: Dict[str, Any], client: Optional[httpx.AsyncClient] = None) -> Dict[str, Any]:
     """Runs the whole decision tree. Returns the result plus the ordered steps, so the UI can replay the path taken."""
     steps: List[Dict[str, Any]] = []
 
@@ -195,6 +210,15 @@ async def analyze(form: Dict[str, Any], client: Optional[httpx.AsyncClient] = No
     region = str(form.get("region") or "US").upper()
     patient_id = str(form.get("patient_id") or "")
     chart = patient_registry.get_chart(patient_id)
+    # Start from the visit: the procedure and the clinical picture were already given at the risk check.
+    # Anything typed into this form wins; the visit only fills what was left empty.
+    from .. import visits
+    context = visits.insurance_context(chart["patient_id"])
+    form = {**form, **{k: v for k, v in context.items() if v and not form.get(k)}}
+    if context.get("flags"):
+        form["flags"] = {**context["flags"], **{k: v for k, v in (form.get("flags") or {}).items() if v is not None}}
+    if len(str(form.get("procedure") or "").strip()) < 2:
+        raise ValueError("No procedure to check: run a risk check for this patient first, or name the procedure.")
     insurance = plans.get_insurance(patient_id)
     base = {"patient_id": chart["patient_id"], "patient_name": chart["name"], "region": region, "insurance": insurance, "steps": steps}
 

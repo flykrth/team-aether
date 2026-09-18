@@ -8,6 +8,7 @@ Every tool returns a compact JSON-serializable dict: the model reads it, so raw 
 CMS-1500 payloads and letters are summarized rather than passed through.
 """
 
+import re
 from typing import Any, Awaitable, Callable, Dict, List
 
 from ...models.agent_state import create_initial_state
@@ -16,9 +17,10 @@ from ..agents.base import carestack_services, clearance_service
 from .context import record_tool_call, turn_recorder
 from .chart_edit_tools import CHART_ACTION_TOOLS, CHART_TOOL_DECLARATIONS, CHART_TOOL_FUNCTIONS
 from .record_tools import RECORD_ACTION_TOOLS, RECORD_TOOL_DECLARATIONS, RECORD_TOOL_FUNCTIONS
+from .visit_tools import VISIT_ACTION_TOOLS, VISIT_TOOL_DECLARATIONS, VISIT_TOOL_FUNCTIONS
 
 ACTION_TOOLS = {"run_agent_workflow", "submit_physician_reply", "check_clearance_escalations", "post_chart_alert"}
-ACTION_TOOLS |= RECORD_ACTION_TOOLS | CHART_ACTION_TOOLS  # chart edits stay blocked after an import (see execute_tool)
+ACTION_TOOLS |= RECORD_ACTION_TOOLS | CHART_ACTION_TOOLS | VISIT_ACTION_TOOLS  # chart edits stay blocked after an import (see execute_tool)
 
 
 def _supervisor():
@@ -141,16 +143,36 @@ async def get_patient_history(patient_id: str) -> Dict[str, Any]:
     }
 
 
-async def assess_clinical_risk(patient_id: str, cdt_code: str) -> Dict[str, Any]:
-    """Read-only: same rules as the Risk agent, but nothing is written to the chart."""
-    state = create_initial_state(patient_id, cdt_codes=[cdt_code])
-    state.update(await IntakeAgent()(state))
-    evaluation = ClinicalRiskAgent().evaluate(state, cdt_code.upper().strip())
+async def assess_clinical_risk(patient_id: str, cdt_code: str = "", procedure: str = "", todays_notes: str = "") -> Dict[str, Any]:
+    """The Risk check. Writes nothing to the chart; it does start (or update) the patient's visit, which carries the
+    procedure and today's notes forward to the insurance step."""
+    from .. import risk_check, visits
+    from .context import turn_last_user_message, turn_user_text
+
+    # A procedure code may come from the user or from the rules, never from the model. If the model passes a D-code the
+    # user did not say, it is dropped and the user's own words are resolved instead.
+    wanted = (procedure or cdt_code or "").strip()
+    said = turn_user_text.get()
+    if said is not None:
+        for code in re.findall(r"\bD\d{4}\b", wanted.upper()):
+            if code not in said.upper():
+                wanted = re.sub(code, "", wanted, flags=re.I).strip(" ,.;:()-")
+        if len(wanted) < 3:
+            wanted = turn_last_user_message.get() or wanted
+    procedure, cdt_code = wanted, ""
+
+    try:
+        result = await risk_check.check(patient_id, procedure or cdt_code, todays_notes, include_evidence=False, include_ai=False)
+    except KeyError as exc:
+        return {"found": False, "message": str(exc).strip("'\"")}
     return {
-        "patient_name": state.get("patient_name"),
-        "record_found": state.get("intake_status") != "PENDING",
-        **{k: evaluation[k] for k in ("cdt_code", "hazard_level", "contraindications", "clinical_recommendations")},
-        "physician_clearance_required": evaluation["hazard_level"] == "CRITICAL",
+        "patient_id": result["patient_id"], "patient_name": result["patient_name"], "record_found": result["record_found"],
+        "cdt_code": result["procedure"]["cdt_code"], "procedure": result["procedure"]["label"], "hazard_level": result["hazard_level"],
+        "contraindications": [f["contraindication"] for f in result["findings"]],
+        "clinical_recommendations": [r for f in result["findings"] for r in f["recommendations"]],
+        "physician_clearance_required": result["physician_clearance_required"],
+        "reported_today_not_on_chart": [c["display"] for c in result["reported_today"]],
+        "next_step": visits.next_step(result["patient_id"]) if result.get("visit") else None,
     }
 
 
@@ -168,16 +190,17 @@ async def consult_specialists(question: str, patient_id: str = "") -> Dict[str, 
     return await consult(question, patient_id or None)
 
 
-async def check_medical_coverage_pathway(patient_id: str, procedure: str, clinical_note: str = "", diagnosis: str = "") -> Dict[str, Any]:
+async def check_medical_coverage_pathway(patient_id: str, procedure: str = "", clinical_note: str = "", diagnosis: str = "") -> Dict[str, Any]:
     """Read-only. The Dental Coverage Recovery pipeline: payer policy + member plan, every statement quoted and verified."""
     from ..coverage import analyst
 
     try:
         result = await analyst.analyze({"patient_id": patient_id, "procedure": procedure, "clinical_note": clinical_note,
                                         "diagnosis": diagnosis, "region": "US"})
-    except KeyError as exc:
+    except (KeyError, ValueError) as exc:
         return {"found": False, "message": str(exc).strip("'\"")}
     return {
+        "patient_id": result["patient_id"], "next_step": result.get("next_step"),
         "patient_name": result["patient_name"], "dental_benefit": result["insurance"]["dental"]["status"],
         "medical_insurer": result["insurance"]["medical"]["insurer"] or "not recorded",
         "outcome": result["determination"]["outcome"], "headline": result["determination"]["headline"],
@@ -240,14 +263,15 @@ def _decl(name: str, description: str, properties: Dict[str, Any] = None, requir
 TOOL_DECLARATIONS: List[Dict[str, Any]] = [
     _decl("list_patients", "List every patient in the CareStack practice with their planned procedures. Use to resolve a name to a patient_id."),
     _decl("get_patient_history", "Full patient history: demographics, medical conditions (ICD-10), medications (RxNorm), allergies, labs, dental treatment plan, documents, chart alerts and clearance requests.", {"patient_id": _PATIENT}),
-    _decl("assess_clinical_risk", "Read-only systemic risk assessment of a dental procedure for a patient (hazard level, contraindications, recommendations). Writes nothing.", {"patient_id": _PATIENT, "cdt_code": _CDT}),
+    _decl("assess_clinical_risk", "The Risk check for a planned procedure: hazard level, contraindications, recommendations. Pass the procedure in the user's words (or a CDT code) and anything the user says they learned today as todays_notes. Changes nothing on the chart; it starts the patient's VISIT, which carries this context to the insurance step.", {"patient_id": _PATIENT, "procedure": {"type": "string", "description": "Procedure in the user's words, or a CDT code"},
+           "todays_notes": {"type": "string", "description": "What the user learned from the patient today, verbatim"}}, required=["patient_id", "procedure"]),
     _decl("check_medical_coverage_pathway", "Read-only. When a patient's dental benefit cannot pay, checks whether the dental problem has a "
           "legitimate MEDICAL-insurance pathway, from the payer's published policy and the member's plan document. Returns an outcome "
           "(no_pathway / potential_pathway / needs_review / dental_active) with verbatim policy quotes. The only source you may use for "
           "insurance coverage statements.",
-          {"patient_id": _PATIENT, "procedure": {"type": "string", "description": "Procedure in plain words or a CDT code"},
+          {"patient_id": _PATIENT, "procedure": {"type": "string", "description": "Optional: omit it to use the procedure of the visit in progress"},
            "clinical_note": {"type": "string", "description": "Clinical findings the user stated: diagnosis, imaging, symptoms, cause (trauma, infection...)"},
-           "diagnosis": {"type": "string"}}, required=["patient_id", "procedure"]),
+           "diagnosis": {"type": "string"}}, required=["patient_id"]),
     _decl("get_agent_state", "Current state of the multi-agent workflow for a patient: clearance status, physician, restrictions, billing claim, agent log.", {"patient_id": _PATIENT}),
     _decl("consult_specialists", "Ask the parallel specialist panel (clinical-safety reviewer, treatment-planning reviewer, patient-communication drafter; each a different model/provider) for second opinions. They see the compact patient history but have no tools and take no actions. Returns their opinions for you to synthesize.", {"question": {"type": "string", "description": "The self-contained question or situation to review, including the procedure if relevant"}, "patient_id": _PATIENT}, required=["question"]),
     _decl("run_agent_workflow", "ACTION. Run the MAO agents (intake, risk, physician clearance) for a patient and procedure. May post a chart alert, dispatch a clearance request to the physician and upload a Letter of Medical Necessity.", {"patient_id": _PATIENT, "cdt_code": _CDT}),
@@ -256,6 +280,7 @@ TOOL_DECLARATIONS: List[Dict[str, Any]] = [
     _decl("post_chart_alert", "ACTION. Post a medical alert to the patient's CareStack chart.", {"patient_id": _PATIENT, "title": {"type": "string"}, "details": {"type": "string"}}),
     *RECORD_TOOL_DECLARATIONS,
     *CHART_TOOL_DECLARATIONS,
+    *VISIT_TOOL_DECLARATIONS,
 ]
 
 TOOL_FUNCTIONS: Dict[str, Callable[..., Awaitable[Dict[str, Any]]]] = {
@@ -265,6 +290,7 @@ TOOL_FUNCTIONS: Dict[str, Callable[..., Awaitable[Dict[str, Any]]]] = {
 }
 TOOL_FUNCTIONS.update(RECORD_TOOL_FUNCTIONS)
 TOOL_FUNCTIONS.update(CHART_TOOL_FUNCTIONS)
+TOOL_FUNCTIONS.update(VISIT_TOOL_FUNCTIONS)
 assert set(TOOL_FUNCTIONS) == {d["name"] for d in TOOL_DECLARATIONS}
 
 

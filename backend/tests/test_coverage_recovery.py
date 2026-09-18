@@ -213,7 +213,7 @@ async def test_unknown_stays_unknown_and_negation_is_respected(library):
 async def test_restricted_opening_from_an_infection_is_not_a_tmj_case(library):
     facts = await case.build({"procedure": "D7240", "clinical_note": "Pericoronitis with restricted opening."}, None)
     assert facts["flags"]["tmj"]["value"] is None
-    assert [c["id"] for c in case.classify(facts)["categories"]] == ["infection"]
+    assert "tmj" not in [c["id"] for c in case.classify(facts)["categories"]]
 
 
 # -- packet + API ------------------------------------------------------------------------------------------
@@ -310,3 +310,14 @@ def test_exclusions_block_unless_clearly_about_another_route():
     assert analyst.determine([met_route, unrelated], plan_dependent, False, True, True)["outcome"] == "potential_pathway"
     assert analyst.determine([met_route, same_section], plan_dependent, False, True, True)["outcome"] == "needs_review"
     assert analyst.determine([met_route, from_plan], plan_dependent, True, True, True)["outcome"] == "no_pathway"  # the plan always wins
+
+
+@pytest.mark.anyio
+async def test_the_procedure_itself_is_evidence_of_an_impacted_tooth(library):
+    """Found live in the chat flow: 'impacted' was only in the procedure, not the note, and the indication was missed."""
+    facts = await case.build({"procedure": "remove the completely bony impacted wisdom tooth", "clinical_note": "Recurrent pericoronitis with swelling."}, None)
+    assert facts["flags"]["impacted_tooth"]["value"] is True and facts["flags"]["impacted_tooth"]["by"] == "procedure"
+    by_code = await case.build({"procedure": "D7240", "clinical_note": ""}, None)
+    assert by_code["flags"]["impacted_tooth"]["value"] is True
+    crown = await case.build({"procedure": "crown", "clinical_note": ""}, None)
+    assert all(v["value"] is None for v in crown["flags"].values())  # a crown says nothing medical

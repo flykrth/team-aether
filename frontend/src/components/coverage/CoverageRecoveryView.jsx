@@ -63,7 +63,7 @@ function Criterion({ c }) {
   );
 }
 
-export function CoverageRecoveryView({ initialPatientId }) {
+export function CoverageRecoveryView({ initialPatientId, embedded = false, context = null, onChecked, onDocument }) {
   const [library, setLibrary] = useState(null);
   const [region, setRegion] = useState('US');
   const [patients, setPatients] = useState([]);
@@ -79,6 +79,8 @@ export function CoverageRecoveryView({ initialPatientId }) {
   const [reviewer, setReviewer] = useState('');
   const [packet, setPacket] = useState(null);
   const [openPassages, setOpenPassages] = useState(false);
+  const [openDetail, setOpenDetail] = useState(!embedded);
+  const [openLibrary, setOpenLibrary] = useState(!embedded);
   const [serverSpeech, setServerSpeech] = useState(undefined);
   const fileRef = useRef(null);
 
@@ -89,6 +91,12 @@ export function CoverageRecoveryView({ initialPatientId }) {
     api.getAssistantStatus().then((st) => setServerSpeech(Boolean(st?.speech?.configured))).catch(() => setServerSpeech(false));
   }, []);
   useEffect(() => { loadLibrary(region); }, [region, loadLibrary]);
+  useEffect(() => { if (initialPatientId) setPatientId(initialPatientId); }, [initialPatientId]);
+  useEffect(() => {
+    if (!context) return;
+    setForm((f) => ({ procedure: f.procedure || context.procedure || '', diagnosis: f.diagnosis || context.diagnosis || '',
+      imaging: f.imaging || context.imaging || '', clinical_note: f.clinical_note || context.clinical_note || '' }));
+  }, [context]);
   useEffect(() => {
     if (!patientId) return;
     setResult(null); setPacket(null); setInsurance(null);
@@ -127,12 +135,14 @@ export function CoverageRecoveryView({ initialPatientId }) {
     setBusy(true); setError(null); setPacket(null);
     try {
       const known = Object.fromEntries(Object.entries(flags).filter(([, v]) => v === true || v === false));
-      setResult(await api.analyzeCoverage({ patient_id: patientId, region, ...form, flags: known }));
+      const res = await api.analyzeCoverage({ patient_id: patientId, region, ...form, flags: known });
+      setResult(res);
+      onChecked?.(res);
     } catch (e) { setError(errText(e)); } finally { setBusy(false); }
   };
   const makePacket = async () => {
     setError(null);
-    try { setPacket(await api.makeCoveragePacket(patientId, reviewer)); } catch (e) { setError(errText(e)); }
+    try { const doc = await api.makeCoveragePacket(patientId, reviewer); setPacket(doc); onDocument?.(doc); } catch (e) { setError(errText(e)); }
   };
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -144,6 +154,7 @@ export function CoverageRecoveryView({ initialPatientId }) {
 
   return (
     <div className="space-y-5">
+      {!embedded && (
       <div className="card">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex-1 min-w-[240px]">
@@ -165,6 +176,7 @@ export function CoverageRecoveryView({ initialPatientId }) {
           <p className="mt-4 rounded-2xl bg-warning-light text-warning-dark text-sm px-4 py-3">{library.regions[region]?.note} No answer will be guessed for this region.</p>
         )}
       </div>
+      )}
 
       {error && <p className="text-sm text-danger-dark bg-danger-light rounded-3xl px-5 py-4">{error}</p>}
 
@@ -215,8 +227,15 @@ export function CoverageRecoveryView({ initialPatientId }) {
           </div>
 
           <div className="card !p-5">
-            <h2 className="font-display text-lg font-medium mb-3">The case</h2>
+            <button type="button" onClick={() => setOpenDetail(!openDetail)} className="w-full flex items-center justify-between mb-3">
+              <h2 className="font-display text-lg font-medium">{embedded ? 'Clinical detail for the insurer' : 'The case'}</h2>
+              {embedded && <span className="text-xs text-text-muted inline-flex items-center gap-1">{openDetail ? 'Hide' : 'Already filled from the visit · edit'} <ChevronDown className={`w-4 h-4 transition-transform ${openDetail ? 'rotate-180' : ''}`} /></span>}
+            </button>
+            {embedded && !openDetail && (
+              <p className="text-sm text-text-secondary mb-3">{form.procedure || 'No procedure yet'}{form.clinical_note ? ` · ${form.clinical_note.slice(0, 120)}${form.clinical_note.length > 120 ? '…' : ''}` : ''}</p>
+            )}
             <div className="space-y-3">
+              {openDetail && (<>
               <label className="block"><span className="eyebrow block mb-1">Planned procedure</span>
                 <div className="flex items-center gap-2 rounded-full bg-app-secondary pr-1">
                   <input value={form.procedure} onChange={set('procedure')} placeholder="In your own words, or a CDT code" className="field !bg-transparent flex-1" />
@@ -236,8 +255,9 @@ export function CoverageRecoveryView({ initialPatientId }) {
                   {Object.entries(library?.case_flags || {}).map(([id, label]) => <Tri key={id} label={label} value={flags[id]} onChange={(v) => setFlags({ ...flags, [id]: v })} />)}
                 </div>
               </div>
-              <button onClick={run} disabled={busy || !patientId || form.procedure.trim().length < 2} className="btn-primary w-full">
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldQuestion className="w-4 h-4" strokeWidth={1.5} />} Check for a medical pathway
+              </>)}
+              <button onClick={run} disabled={busy || !patientId || (!embedded && form.procedure.trim().length < 2) || insurance?.dental?.status === 'unknown'} className="btn-primary w-full">
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldQuestion className="w-4 h-4" strokeWidth={1.5} />} {insurance?.dental?.status === 'unknown' ? 'Select the dental benefit status first' : insurance?.dental?.status === 'active' ? 'Confirm: bill the dental plan' : 'Check for a medical pathway'}
               </button>
             </div>
           </div>
@@ -245,7 +265,7 @@ export function CoverageRecoveryView({ initialPatientId }) {
 
         {/* Result */}
         <div className="xl:col-span-7 space-y-5">
-          {!result && (
+          {!result && !embedded && (
             <div className="card text-sm text-text-secondary">
               <p className="font-display text-lg text-text-main mb-2">What this does, and what it refuses to do</p>
               <p>It starts from the patient's condition, not from the bill. It reads the insurer's published policy and the member's own plan, and shows you their exact words. It will not re-label dental care as medical, and it never says "covered": only the payer decides that.</p>
@@ -327,7 +347,7 @@ export function CoverageRecoveryView({ initialPatientId }) {
           {/* Library */}
           <div className="card !p-5">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex-1 min-w-[200px]"><h3 className="font-display text-lg font-medium">Policy library</h3>
+              <div className="flex-1 min-w-[200px]"><button type="button" onClick={() => setOpenLibrary(!openLibrary)} className="flex items-center gap-2"><h3 className="font-display text-lg font-medium">Policy library</h3><ChevronDown className={`w-4 h-4 transition-transform ${openLibrary ? 'rotate-180' : ''}`} /></button>
                 <p className="text-xs text-text-muted">{cached} of {library?.sources?.length || 0} published policies downloaded to this machine. Nothing about coverage is written into the app itself.</p></div>
               <button onClick={refresh} disabled={refreshing || !supported} className="btn-ghost"><RefreshCcw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} strokeWidth={1.5} /> Refresh sources</button>
             </div>
@@ -337,7 +357,7 @@ export function CoverageRecoveryView({ initialPatientId }) {
                 {library.index.state === 'indexing' ? ' · indexing in the background' : ''}{library.index.note ? ` · ${library.index.note}` : ''}
               </p>
             )}
-            <div className="mt-3 space-y-1">
+            <div className={`mt-3 space-y-1 ${openLibrary ? '' : 'hidden'}`}>
               {(library?.sources || []).map((s) => (
                 <div key={s.id} className="flex items-center gap-3 rounded-2xl bg-app-secondary px-4 py-2.5 text-sm">
                   {s.error ? <AlertTriangle className="w-4 h-4 text-danger shrink-0" strokeWidth={1.5} /> : <Check className={`w-4 h-4 shrink-0 ${s.cached ? 'text-success' : 'text-text-muted'}`} />}

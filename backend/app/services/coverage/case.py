@@ -94,6 +94,11 @@ async def build(form: Dict[str, Any], chart: Optional[Dict[str, Any]], client: O
     note = str(form.get("clinical_note") or "")
     procedure = risk_check.resolve_procedure(str(form.get("procedure") or ""))
     proposed = _rule_flags(note)
+    # The procedure is evidence too: "removal of a completely bony impacted third molar" (CDT D7240) says the tooth is
+    # impacted even when the note never repeats the word. Only what the procedure itself states; nothing is inferred beyond it.
+    for flag, found in _rule_flags(f"{procedure['input']}. {procedure['label'] if procedure['matched'] else ''}").items():
+        if found["value"] and flag not in proposed:
+            proposed[flag] = {**found, "evidence": f"planned procedure: {procedure['input'] or procedure['label']}"[:200], "by": "procedure"}
 
     owns = client is None
     client = client or httpx.AsyncClient(timeout=40.0)

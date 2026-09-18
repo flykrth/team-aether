@@ -166,6 +166,8 @@ async def delete_patient(patient_id: str) -> Dict[str, Any]:
     result = _call(patient_registry.delete_patient, patient_id)
     from ..services.coverage import plans  # the member's uploaded plan document goes with the chart
     plans.forget(result["deleted"])
+    from ..services import visits
+    visits.forget(result["deleted"])
     return result
 
 

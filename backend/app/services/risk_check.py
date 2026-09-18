@@ -115,6 +115,7 @@ async def check(
     include_evidence: bool = True,
     include_ai: bool = True,
     client: Optional[httpx.AsyncClient] = None,
+    save_visit: bool = True,
 ) -> Dict[str, Any]:
     resolved = resolve_procedure(procedure)
     cdt_code = resolved["cdt_code"]
@@ -179,7 +180,7 @@ async def check(
                     suggested_removals.append({"resource_id": entry["resource_id"], "text": entry["text"], "type": entry["type"],
                                                "said": item.get("evidence") or item.get("text") or ""})
 
-    return {
+    result = {
         "patient_id": state["patient_id"],
         "patient_name": state.get("patient_name") or "",
         "record_found": state.get("intake_status") != "PENDING",
@@ -194,3 +195,11 @@ async def check(
         "findings": findings,
         "second_look": second_look,
     }
+    if save_visit:
+        # The visit keeps this as context, so the insurance step later starts from what was said and found here
+        from . import visits
+        try:
+            result["visit"] = visits.record_risk_check(patient_id, result, current_notes)
+        except KeyError:
+            result["visit"] = None  # a patient that exists only as typed text has no chart to hang a visit on
+    return result
