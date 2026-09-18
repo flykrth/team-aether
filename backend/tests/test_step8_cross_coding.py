@@ -311,6 +311,21 @@ def test_api_evaluate_claim_patient_robert_taylor():
     assert "SV1*HC:41874" in claim["edi_837p_preview"]
 
 
+def test_api_evaluate_claim_carestack_cs_1003():
+    """Test POST /api/billing/evaluate-claim for CareStack ID CS-1003 (Robert Taylor)."""
+    resp = client.post(
+        "/api/billing/evaluate-claim",
+        json={"patient_id": "CS-1003", "cdt_code": "D4341"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["is_eligible"] is True
+    assert data["cdt_code"] == "D4341"
+    assert data["suggested_cpt"] == "41874"
+    assert "E11.9" in data["justifying_icd10"]
+    assert data["estimated_coverage"] == 600.0
+
+
 def test_api_evaluate_claim_with_custom_conditions():
     """Test POST /api/billing/evaluate-claim with explicitly provided conditions payload."""
     resp = client.post(

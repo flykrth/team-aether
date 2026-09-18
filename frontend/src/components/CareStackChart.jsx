@@ -8,6 +8,7 @@ import {
   Loader2,
   User,
   ShieldAlert,
+  FileCheck,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -37,7 +38,14 @@ const ALERT_BANNER_STYLES = {
  * Compact demographic header, CDT procedure toolbar, and live medical alerts banner
  * synchronized from federated Medical EHR.
  */
-export function CareStackChart({ patients, selectedPatient, onSelectPatient, onCardsUpdate, alertsVersion }) {
+export function CareStackChart({
+  patients,
+  selectedPatient,
+  onSelectPatient,
+  onCardsUpdate,
+  alertsVersion,
+  documentsCount = 0,
+}) {
   const [selectedProcedure, setSelectedProcedure] = useState(null);
   const [hookLoading, setHookLoading] = useState(false);
   const [alerts, setAlerts] = useState([]);
@@ -68,11 +76,22 @@ export function CareStackChart({ patients, selectedPatient, onSelectPatient, onC
     setSelectedProcedure(proc.code);
     setHookLoading(true);
     try {
-      const response = await api.evaluateOrderSelectHook(selectedPatient.mrn, proc.code);
-      onCardsUpdate?.(response.cards || [], proc);
+      // Concurrently query both the clinical safety CDS Hook and administrative cross-coding evaluation
+      const [cdsResponse, billingResponse] = await Promise.all([
+        api.evaluateOrderSelectHook(selectedPatient.mrn, proc.code).catch((err) => {
+          console.error('order-select CDS Hook failed:', err);
+          return { cards: [] };
+        }),
+        api.evaluateBillingClaim(selectedPatient.id || selectedPatient.mrn, proc.code).catch((err) => {
+          console.error('evaluate-claim cross-coding failed:', err);
+          return null;
+        }),
+      ]);
+
+      onCardsUpdate?.(cdsResponse.cards || [], proc, billingResponse);
     } catch (err) {
-      console.error('order-select CDS Hook failed:', err);
-      onCardsUpdate?.([], proc);
+      console.error('Procedure order-select / cross-coding failed:', err);
+      onCardsUpdate?.([], proc, null);
     } finally {
       setHookLoading(false);
     }
@@ -132,6 +151,11 @@ export function CareStackChart({ patients, selectedPatient, onSelectPatient, onC
               <span>MRN: <strong className="text-teal-700">{selectedPatient.mrn}</strong></span>
               <span className="text-text-muted">•</span>
               <span>CareStack ID: <strong className="text-text-main">{selectedPatient.id}</strong></span>
+              <span className="text-text-muted">•</span>
+              <span className="inline-flex items-center gap-1 font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 text-[11px]">
+                <FileCheck className="w-3 h-3 text-teal-600" />
+                CareStack Docs: <strong>{documentsCount} Synced</strong>
+              </span>
             </div>
           </div>
         </div>

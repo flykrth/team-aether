@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Activity, RefreshCcw, FileCode, CheckCircle2, ShieldAlert } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { Activity, RefreshCcw, FileCode, CheckCircle2, ShieldAlert, TrendingUp, Sparkles, FileSpreadsheet } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { PatientHeader } from './components/PatientHeader';
 import { ClinicalContext } from './components/ClinicalContext';
@@ -10,6 +10,7 @@ import { EvidenceDrawer } from './components/EvidenceDrawer';
 import { PatientTimeline } from './components/PatientTimeline';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { PatientRecordViewer } from './components/PatientRecordViewer';
+import { FinancialOptimizationModal } from './components/FinancialOptimizationModal';
 import { api } from './services/api';
 
 const DEMO_PATIENT_IDS = ['CS-2001', 'CS-2002', 'CS-1003'];
@@ -21,14 +22,30 @@ export function App() {
   const [patients, setPatients] = useState([]);
   const [selectedPatientId, setSelectedPatientId] = useState(null);
   const [cdsCards, setCdsCards] = useState([]);
+  const [billingOpportunity, setBillingOpportunity] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'safety' | 'billing'
+  const [documentsCount, setDocumentsCount] = useState(0);
+  const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [lastProcedure, setLastProcedure] = useState({ code: 'D7140', label: 'Extraction, Erupted Tooth' });
   const [alertsVersion, setAlertsVersion] = useState(0);
   const [webhookSyncing, setWebhookSyncing] = useState(false);
   const [webhookMessage, setWebhookMessage] = useState(null);
+  const [claimToast, setClaimToast] = useState(null);
   const [selectedEvidenceCard, setSelectedEvidenceCard] = useState(null);
   const [showDeveloperConsole, setShowDeveloperConsole] = useState(false);
 
   const selectedPatient = patients.find((p) => p.id === selectedPatientId) || null;
+
+  const loadDocuments = useCallback(async (patientId) => {
+    if (!patientId) return;
+    try {
+      const res = await api.getCareStackDocuments(patientId).catch(() => []);
+      const count = Array.isArray(res) ? res.length : (res?.documents?.length || res?.document_count || 0);
+      setDocumentsCount(count);
+    } catch (err) {
+      console.error('Failed to load patient documents:', err);
+    }
+  }, []);
 
   const loadStatusAndPatients = useCallback(async () => {
     try {
@@ -56,30 +73,51 @@ export function App() {
     loadStatusAndPatients();
   }, [loadStatusAndPatients]);
 
-  // Pre-evaluate default procedure D7140 on initial patient load
+  // Load CareStack documents count when patient changes
+  useEffect(() => {
+    if (selectedPatient) {
+      loadDocuments(selectedPatient.id);
+    }
+  }, [selectedPatient, loadDocuments]);
+
+  // Pre-evaluate default procedure D7140 (and D4341 for CS-1003) on initial patient load
   useEffect(() => {
     if (!selectedPatient) return;
+    let cancelled = false;
     async function initialRiskEval() {
       try {
-        const response = await api.evaluateOrderSelectHook(selectedPatient.mrn, 'D7140').catch(() => ({ cards: [] }));
-        setCdsCards(response.cards || []);
+        const procCode = lastProcedure?.code || 'D7140';
+        const [response, billingRes] = await Promise.all([
+          api.evaluateOrderSelectHook(selectedPatient.mrn, procCode).catch(() => ({ cards: [] })),
+          api.evaluateBillingClaim(selectedPatient.id || selectedPatient.mrn, procCode).catch(() => null),
+        ]);
+        if (!cancelled) {
+          setCdsCards(response.cards || []);
+          setBillingOpportunity(billingRes);
+        }
       } catch (err) {
         console.error('Initial risk evaluation failed', err);
       }
     }
     initialRiskEval();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedPatientId, selectedPatient]);
 
   const handleSelectPatient = useCallback((id) => {
     setSelectedPatientId(id);
     setCdsCards([]);
+    setBillingOpportunity(null);
     setLastProcedure({ code: 'D7140', label: 'Extraction, Erupted Tooth' });
     setSelectedEvidenceCard(null);
+    setIsFinancialModalOpen(false);
   }, []);
 
-  const handleCardsUpdate = useCallback((cards, proc) => {
+  const handleCardsUpdate = useCallback((cards, proc, billingRes) => {
     setCdsCards(cards);
     setLastProcedure(proc);
+    setBillingOpportunity(billingRes);
   }, []);
 
   const handleAppendAlert = useCallback(
@@ -127,12 +165,48 @@ export function App() {
         text: res.message,
       });
       setAlertsVersion((v) => v + 1);
+      loadDocuments(selectedPatient.id);
     } catch (err) {
       setWebhookMessage({ type: 'error', text: `Webhook sync failed: ${err.message}` });
     } finally {
       setWebhookSyncing(false);
     }
   };
+
+  // Synthesize Card Type B: Administrative Opportunity Card if eligible
+  const administrativeCard = useMemo(() => {
+    if (!billingOpportunity || !billingOpportunity.is_eligible) return null;
+    return {
+      cardType: 'administrative',
+      indicator: 'opportunity',
+      uuid: `admin-crosswalk-${lastProcedure?.code || 'proc'}-${selectedPatient?.id}`,
+      header: 'Medical Cross-Coding Opportunity Identified',
+      summary: billingOpportunity.estimated_coverage
+        ? `Est. Medical Coverage: $${billingOpportunity.estimated_coverage.toFixed(2)}`
+        : 'Est. Medical Coverage: $400 - $800',
+      detail:
+        billingOpportunity.narrative_justification ||
+        'Dental procedure qualifies for primary medical insurance cross-coding under medical necessity guidelines.',
+      cdt_code: billingOpportunity.cdt_code || lastProcedure?.code || 'D4341',
+      cpt_code: billingOpportunity.suggested_cpt || '41874',
+      icd10_codes: billingOpportunity.justifying_icd10 || ['E11.9'],
+      icd10: billingOpportunity.justifying_icd10?.[0] || 'E11.9',
+      opportunity: billingOpportunity,
+      source: {
+        label: 'CareStack Administrative Cross-Coding Engine',
+      },
+    };
+  }, [billingOpportunity, lastProcedure, selectedPatient]);
+
+  // Combined and filtered CDS cards list
+  const filteredCards = useMemo(() => {
+    const clinical = cdsCards || [];
+    const admin = administrativeCard ? [administrativeCard] : [];
+    if (activeFilter === 'safety') return clinical;
+    if (activeFilter === 'billing') return admin;
+    // 'all': Clinical safety cards first, followed by administrative opportunity cards stacked cleanly
+    return [...clinical, ...admin];
+  }, [cdsCards, administrativeCard, activeFilter]);
 
   return (
     <div className="min-h-screen bg-app-bg text-text-main flex flex-col font-sans">
@@ -179,12 +253,26 @@ export function App() {
           </div>
         )}
 
-        {/* Patient Demographic Banner */}
+        {/* Claim Submission Success Toast */}
+        {claimToast && (
+          <div className="mb-4 p-3 rounded text-xs font-semibold border bg-emerald-50 text-emerald-900 border-emerald-300 flex items-center justify-between shadow-xs animate-fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{claimToast}</span>
+            </div>
+            <button onClick={() => setClaimToast(null)} className="text-emerald-700 hover:text-emerald-950 font-bold text-sm ml-4">
+              ×
+            </button>
+          </div>
+        )}
+
+        {/* Patient Demographic Banner with CareStack Documents Counter */}
         <PatientHeader
           patients={patients}
           selectedPatient={selectedPatient}
           onSelectPatient={handleSelectPatient}
           activeProcedure={lastProcedure}
+          documentsCount={documentsCount}
         />
 
         {/* Doctor View 1: Patient Workspace */}
@@ -208,14 +296,15 @@ export function App() {
                   onSelectPatient={handleSelectPatient}
                   onCardsUpdate={handleCardsUpdate}
                   alertsVersion={alertsVersion}
+                  documentsCount={documentsCount}
                 />
               </div>
 
-              {/* Right: Clinical Review Cards */}
+              {/* Right: Clinical Review Cards & Financial Optimization */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1">
-                    <span>Clinical Review & Safety Alerts</span>
+                    <span>Clinical Review &amp; Optimization Alerts</span>
                     {lastProcedure && (
                       <span className="normal-case font-normal text-teal-700">
                         — CDT <code className="font-mono font-bold bg-teal-50 px-1 py-0.5 rounded border border-teal-200">{lastProcedure.code}</code>
@@ -223,19 +312,64 @@ export function App() {
                     )}
                   </h2>
                   <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
-                    Real-Time Safety Engine
+                    MDIN Multi-Card Engine
                   </span>
                 </div>
 
-                {cdsCards.length > 0 ? (
+                {/* Quick-Filter Tabs */}
+                <div className="flex items-center gap-1.5 mb-3 p-1 bg-app-secondary/60 rounded-lg border border-app-border text-xs">
+                  <button
+                    onClick={() => setActiveFilter('all')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md font-semibold transition-all cursor-pointer ${
+                      activeFilter === 'all'
+                        ? 'bg-app-surface text-text-main shadow-xs border border-app-border font-bold'
+                        : 'text-text-secondary hover:text-text-main'
+                    }`}
+                  >
+                    <span>All Alerts</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-teal-100 text-teal-800 font-mono font-bold">
+                      {cdsCards.length + (billingOpportunity?.is_eligible ? 1 : 0)}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setActiveFilter('safety')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md font-semibold transition-all cursor-pointer ${
+                      activeFilter === 'safety'
+                        ? 'bg-app-surface text-danger-dark shadow-xs border border-app-border font-bold'
+                        : 'text-text-secondary hover:text-text-main'
+                    }`}
+                  >
+                    <span>Clinical Safety</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-danger-light text-danger-dark font-mono font-bold">
+                      {cdsCards.length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setActiveFilter('billing')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md font-semibold transition-all cursor-pointer ${
+                      activeFilter === 'billing'
+                        ? 'bg-app-surface text-emerald-800 shadow-xs border border-app-border font-bold'
+                        : 'text-text-secondary hover:text-text-main'
+                    }`}
+                  >
+                    <span>Billing &amp; Revenue</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-mono font-bold">
+                      {billingOpportunity?.is_eligible ? 1 : 0}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Stact of CDS Cards */}
+                {filteredCards.length > 0 ? (
                   <div>
-                    {cdsCards.map((card, idx) => (
+                    {filteredCards.map((card, idx) => (
                       <CDSHookCard
                         key={card.uuid || idx}
                         card={card}
                         onAppendAlert={handleAppendAlert}
                         onRequestConsult={handleRequestConsult}
                         onViewEvidence={(c) => setSelectedEvidenceCard(c)}
+                        onOpenFinancialDashboard={() => setIsFinancialModalOpen(true)}
                       />
                     ))}
                   </div>
@@ -243,7 +377,11 @@ export function App() {
                   <div className="p-3.5 bg-success-light border border-success/30 rounded text-xs text-success-dark flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
                     <span>
-                      No contraindications detected for procedure CDT {lastProcedure?.code || 'D7140'}.
+                      {activeFilter === 'safety'
+                        ? `No clinical safety contraindications detected for CDT ${lastProcedure?.code || 'D7140'}.`
+                        : activeFilter === 'billing'
+                        ? `No primary medical billing cross-coding opportunities for CDT ${lastProcedure?.code || 'D7140'}.`
+                        : `No clinical alerts or cross-coding opportunities detected for CDT ${lastProcedure?.code || 'D7140'}.`}
                     </span>
                   </div>
                 )}
@@ -279,6 +417,21 @@ export function App() {
           procedure={lastProcedure}
           patient={selectedPatient}
           onClose={() => setSelectedEvidenceCard(null)}
+        />
+      )}
+
+      {/* Financial Optimization & CMS-1500 Modal Overlay */}
+      {isFinancialModalOpen && (
+        <FinancialOptimizationModal
+          isOpen={isFinancialModalOpen}
+          onClose={() => setIsFinancialModalOpen(false)}
+          opportunity={billingOpportunity}
+          patient={selectedPatient}
+          procedure={lastProcedure}
+          onDocumentSynced={() => {
+            if (selectedPatient) loadDocuments(selectedPatient.id);
+            setClaimToast('Letter of Medical Necessity & CMS-1500 Claim successfully synced to CareStack Documents API.');
+          }}
         />
       )}
 

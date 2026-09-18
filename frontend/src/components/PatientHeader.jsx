@@ -1,7 +1,7 @@
 import React from 'react';
-import { User, Calendar, ShieldCheck, ChevronDown, Clock, MapPin } from 'lucide-react';
+import { User, Calendar, ShieldCheck, ChevronDown, Clock, MapPin, FileCheck } from 'lucide-react';
 
-export function PatientHeader({ patients, selectedPatient, onSelectPatient, activeProcedure }) {
+export function PatientHeader({ patients, selectedPatient, onSelectPatient, activeProcedure, documentsCount = 0 }) {
   if (!selectedPatient) return null;
 
   return (
@@ -36,8 +36,17 @@ export function PatientHeader({ patients, selectedPatient, onSelectPatient, acti
           </div>
         </div>
 
-        {/* Right: Active Procedure & Patient Selector Dropdown */}
+        {/* Right: Active Procedure, Documents Badge & Patient Switcher */}
         <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-app-border">
+          {/* CareStack Documents Counter Badge */}
+          <div className="bg-teal-50/80 px-2.5 py-1 rounded border border-teal-200 text-xs font-semibold text-teal-900 flex items-center gap-1.5 shadow-2xs">
+            <FileCheck className="w-3.5 h-3.5 text-teal-600" />
+            <span>CareStack Documents:</span>
+            <span className="bg-teal-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full font-mono">
+              {documentsCount} Synced
+            </span>
+          </div>
+
           {activeProcedure && (
             <div className="bg-app-bg px-3 py-1.5 rounded border border-app-border text-xs flex items-center gap-2">
               <span className="text-text-muted">Today's Procedure:</span>

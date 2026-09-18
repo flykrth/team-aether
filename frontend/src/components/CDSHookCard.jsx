@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
-import { AlertTriangle, ShieldCheck, Info, HeartPulse, CheckCircle2, Stethoscope, ArrowRight } from 'lucide-react';
+import {
+  AlertTriangle,
+  ShieldCheck,
+  Info,
+  HeartPulse,
+  CheckCircle2,
+  Stethoscope,
+  ArrowRight,
+  TrendingUp,
+  FileSpreadsheet,
+  Link2,
+  Sparkles,
+} from 'lucide-react';
 
 const INDICATOR_STYLES = {
   critical: {
@@ -28,7 +40,7 @@ const INDICATOR_STYLES = {
 /**
  * Very small markdown renderer for CDS detail text (supports bolding, bullet points, and line breaks).
  */
-function renderDetailMarkdown(detail) {
+function renderDetailMarkdown(detail, textColor = 'text-text-main') {
   if (!detail) return null;
   const lines = detail.split('\n');
   return lines.map((line, i) => {
@@ -37,7 +49,7 @@ function renderDetailMarkdown(detail) {
     const content = isBullet ? trimmed.slice(2) : trimmed;
     const parts = content.split(/(\*\*[^*]+\*\*)/g).map((chunk, j) =>
       chunk.startsWith('**') && chunk.endsWith('**') ? (
-        <strong key={j} className="font-semibold text-text-main">
+        <strong key={j} className={`font-semibold ${textColor}`}>
           {chunk.slice(2, -2)}
         </strong>
       ) : (
@@ -48,25 +60,166 @@ function renderDetailMarkdown(detail) {
     if (!trimmed) return <div key={i} className="h-1.5" />;
 
     return isBullet ? (
-      <div key={i} className="flex gap-2 pl-1 text-xs text-text-main leading-relaxed">
-        <span aria-hidden="true" className="text-text-muted">•</span>
+      <div key={i} className={`flex gap-2 pl-1 text-xs ${textColor} leading-relaxed`}>
+        <span aria-hidden="true" className="opacity-60">•</span>
         <span>{parts}</span>
       </div>
     ) : (
-      <p key={i} className="text-xs text-text-main leading-relaxed">{parts}</p>
+      <p key={i} className={`text-xs ${textColor} leading-relaxed`}>{parts}</p>
     );
   });
 }
 
 /**
- * Enterprise CareStack CDS Hooks v1.0 Decision Card Component
+ * Enterprise CareStack CDS Hooks v1.0 & Step 10 Dual Decision Card Component:
+ * - Card Type A: Clinical Safety Card (Red/Amber/Blue for contraindications & clinical hazards).
+ * - Card Type B: Administrative Opportunity Card (Emerald/Green theme for medical cross-coding & financial optimization).
  */
-export function CDSHookCard({ card, onAppendAlert, onRequestConsult, onViewEvidence }) {
+export function CDSHookCard({
+  card,
+  onAppendAlert,
+  onRequestConsult,
+  onViewEvidence,
+  onOpenFinancialDashboard,
+}) {
   const [appending, setAppending] = useState(false);
   const [appended, setAppended] = useState(false);
   const [requestingConsult, setRequestingConsult] = useState(false);
   const [consultRequested, setConsultRequested] = useState(false);
 
+  // Determine if this is an Administrative Billing Opportunity Card (Card Type B)
+  const isOpportunity =
+    card.cardType === 'administrative' ||
+    card.type === 'administrative' ||
+    card.indicator === 'opportunity' ||
+    card.isBillingOpportunity ||
+    Boolean(card.opportunity);
+
+  // ---------------------------------------------------------------------------
+  // CARD TYPE B: Administrative Opportunity Card (Emerald Theme)
+  // ---------------------------------------------------------------------------
+  if (isOpportunity) {
+    const opportunity = card.opportunity || {};
+    const cdtCode = card.cdt_code || opportunity.cdt_code || 'D4341';
+    const cptCode = card.cpt_code || opportunity.suggested_cpt || '41874';
+    const icd10List = card.icd10_codes || opportunity.justifying_icd10 || ['E11.9'];
+    const icd10Primary = card.icd10 || icd10List[0] || 'E11.9';
+    const summaryText =
+      card.summary ||
+      (opportunity.estimated_coverage
+        ? `Est. Medical Coverage: $${opportunity.estimated_coverage.toFixed(2)}`
+        : 'Est. Medical Coverage: $400 - $800');
+
+    return (
+      <div className="rounded-lg border border-emerald-500 bg-emerald-50 text-emerald-900 p-4 mb-3 shadow-xs transition-all hover:shadow-md">
+        {/* Opportunity Card Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5 shrink-0 p-1 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-300">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-600 text-white shadow-xs">
+                  <Sparkles className="w-3 h-3" />
+                  Financial Optimization
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded border border-emerald-200">
+                  Medical Cross-Coding
+                </span>
+              </div>
+              <h3 className="font-bold text-sm text-emerald-950 leading-snug">
+                Medical Cross-Coding Opportunity Identified
+              </h3>
+            </div>
+          </div>
+        </div>
+
+        {/* Reimbursement Summary Banner */}
+        <div className="mt-3 px-3 py-2 rounded-md bg-white border border-emerald-200 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">
+              Estimated Medical Reimbursement
+            </span>
+            <span className="text-sm font-extrabold text-emerald-900 font-mono">
+              {summaryText}
+            </span>
+          </div>
+          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            Primary Medical Payer
+          </span>
+        </div>
+
+        {/* Code Cross-Walk Pill Badges */}
+        <div className="mt-2.5 pt-2.5 border-t border-emerald-200/80">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-1.5 flex items-center gap-1">
+            <Link2 className="w-3 h-3 text-emerald-600" />
+            <span>Code Cross-Walk Pathway</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-mono font-bold bg-white text-slate-800 border border-emerald-300 shadow-xs">
+              <span className="text-[10px] font-sans font-semibold text-text-muted">CDT</span>
+              <span>{cdtCode}</span>
+            </span>
+
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-mono font-bold bg-emerald-600 text-white shadow-xs">
+              <span className="text-[10px] font-sans font-semibold text-emerald-100">CPT</span>
+              <span>{cptCode}</span>
+            </span>
+
+            <span className="text-emerald-700 text-[11px] font-medium px-1">linked via</span>
+
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-mono font-semibold bg-emerald-100 text-emerald-900 border border-emerald-300">
+              <span className="text-[10px] font-sans font-semibold text-emerald-700">ICD-10</span>
+              <span className="font-bold">{icd10Primary}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Narrative Clinical Justification */}
+        {card.detail && (
+          <div className="mt-2.5 pt-2 border-t border-emerald-200/60 text-xs text-emerald-900/90 leading-relaxed">
+            {renderDetailMarkdown(card.detail, 'text-emerald-950')}
+          </div>
+        )}
+
+        {/* Verified Source Attribution */}
+        <div className="mt-3 flex items-center justify-between text-[11px] text-emerald-800 bg-white/70 px-2.5 py-1.5 rounded border border-emerald-200">
+          <span className="flex items-center gap-1.5 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>
+              Source:{' '}
+              <strong className="text-emerald-950 font-semibold">
+                {card.source?.label || 'CareStack Administrative Cross-Coding Engine'}
+              </strong>
+            </span>
+          </span>
+          <span className="text-[10px] text-emerald-700 font-mono">ConceptMap CDT to CPT</span>
+        </div>
+
+        {/* Action Button: Launch Financial Optimization Dashboard */}
+        <div className="mt-3 pt-2.5 border-t border-emerald-300/80 flex items-center justify-between">
+          <span className="text-[11px] text-emerald-700 italic">
+            Ready for CMS-1500 generation & 837P EDI
+          </span>
+          <button
+            onClick={() => onOpenFinancialDashboard?.(card)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer active:scale-98"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Open Financial Optimization Dashboard</span>
+            <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // CARD TYPE A: Clinical Safety Card (Red/Amber Theme)
+  // ---------------------------------------------------------------------------
   const style = INDICATOR_STYLES[card.indicator] || INDICATOR_STYLES.info;
   const Icon = style.icon;
 
