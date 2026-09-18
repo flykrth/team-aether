@@ -41,6 +41,12 @@ _RESOURCE_TYPE = {"condition": "Condition", "medication": "MedicationRequest",
 # Supplements the Intake agent's NARRATIVE_LEXICON (same shape) with common history items.
 # RxNorm codes are ingredient-level RxCUIs.
 SUPPLEMENTAL_LEXICON = [
+    # Dentally relevant drugs and conditions: newer antiplatelets (bleeding) and immunosuppression (infection, healing)
+    (r"\bticagrelor\b|\bbrilinta\b", {"type": "medication", "system": RXNORM_SYSTEM, "code": "1116632", "display": "Ticagrelor (Brilinta)", "drug_class": "antiplatelet"}),
+    (r"\bprasugrel\b|\beffient\b", {"type": "medication", "system": RXNORM_SYSTEM, "code": "613391", "display": "Prasugrel (Effient)", "drug_class": "antiplatelet"}),
+    (r"\bmethotrexate\b", {"type": "medication", "system": RXNORM_SYSTEM, "code": "6851", "display": "Methotrexate", "drug_class": "immunosuppressant"}),
+    (r"\brheumatoid arthritis\b", {"type": "condition", "system": ICD10_SYSTEM, "code": "M06.9", "display": "Rheumatoid arthritis, unspecified"}),
+    (r"\bhyperlipid(a)?emia\b|\bhigh cholesterol\b", {"type": "condition", "system": ICD10_SYSTEM, "code": "E78.5", "display": "Hyperlipidemia, unspecified"}),
     (r"\basthma\b", {"type": "condition", "system": ICD10_SYSTEM, "code": "J45.909", "display": "Unspecified asthma, uncomplicated"}),
     (r"\bcopd\b|\bchronic obstructive pulmonary\b",
      {"type": "condition", "system": ICD10_SYSTEM, "code": "J44.9", "display": "Chronic obstructive pulmonary disease, unspecified"}),

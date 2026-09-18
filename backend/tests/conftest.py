@@ -11,8 +11,11 @@ from app.config import settings
 
 @pytest.fixture(autouse=True)
 def _no_real_provider_keys(monkeypatch):
-    for name in ("GEMINI_API_KEY", "GROQ_API_KEY", "NVIDIA_API_KEY"):
+    for name in ("GEMINI_API_KEY", "GROQ_API_KEY", "NVIDIA_API_KEY",
+                 # a developer's real CareStack account must never be the target of a test either
+                 "CARESTACK_BASE_URL", "CARESTACK_VENDOR_KEY", "CARESTACK_ACCOUNT_KEY", "CARESTACK_ACCOUNT_ID"):
         monkeypatch.setattr(settings, name, "", raising=False)
+    monkeypatch.setattr(settings, "USE_LIVE_CARESTACK", False, raising=False)
 
 
 @pytest.fixture(autouse=True)

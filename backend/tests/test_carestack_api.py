@@ -329,3 +329,9 @@ async def test_carestack_client_auth_failure():
     # The /auth/verify endpoint enforces validation
     with pytest.raises(CareStackAuthenticationError):
         await bad_client._request("GET", "/api/v1.0/auth/verify")
+
+
+def test_client_accepts_a_base_url_without_a_scheme():
+    from app.services.carestack_client import CareStackClient
+    assert CareStackClient(base_url="practice.carestack.com/").base_url == "https://practice.carestack.com"
+    assert CareStackClient(base_url="http://localhost:9000").base_url == "http://localhost:9000"

@@ -74,7 +74,10 @@ class CareStackClient:
         # resolvable origin; live mode always supplies a real base_url.
         self.base_url = (
             base_url or settings.CARESTACK_BASE_URL or "http://carestack-simulator.local"
-        ).rstrip("/")
+        ).strip().rstrip("/")
+        # A bare host in .env ("practice.carestack.com") is a common slip; httpx rejects it as "unknown url type"
+        if "://" not in self.base_url:
+            self.base_url = f"https://{self.base_url}"
         self.vendor_key = vendor_key or settings.CARESTACK_VENDOR_KEY
         self.account_key = account_key or settings.CARESTACK_ACCOUNT_KEY
         self.account_id = account_id or settings.CARESTACK_ACCOUNT_ID

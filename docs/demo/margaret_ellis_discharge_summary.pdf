@@ -1,0 +1,141 @@
+%PDF-1.3
+%‚„œ”
+1 0 obj
+<<
+/Producer (pypdf)
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 1
+/Kids [ 4 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+4 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 5 0 R
+/F2 6 0 R
+>>
+>>
+/MediaBox [ 0.0 0.0 612 792 ]
+/Parent 2 0 R
+/Contents 7 0 R
+>>
+endobj
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+6 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica-Bold
+>>
+endobj
+7 0 obj
+<<
+/Length 1390
+>>
+stream
+BT
+/F2 15 Tf
+54 738 Td
+(Riverside General Hospital - Discharge Summary) Tj
+0 -10 Td
+/F1 10.5 Tf
+15 TL
+(Date: 2026-08-04        Patient: Margaret Ellis        DOB: 1952-03-18        MRN: RG-448210) Tj
+T*
+(Attending: Dr. Helen Park, MD \(Internal Medicine\)) Tj
+T*
+T*
+/F2 11 Tf
+(Reason for admission) Tj
+T*
+/F1 10.5 Tf
+(Admitted 2026-07-30 with rapid atrial fibrillation. Rate controlled and discharged in stable condition.) Tj
+T*
+T*
+/F2 11 Tf
+(Active diagnoses) Tj
+T*
+/F1 10.5 Tf
+(Atrial fibrillation. Prosthetic mitral heart valve \(mechanical\), placed 2018.) Tj
+T*
+(Osteoporosis. Type 2 diabetes. Hypertension. Chronic kidney disease.) Tj
+T*
+T*
+/F2 11 Tf
+(Medications on discharge) Tj
+T*
+/F1 10.5 Tf
+(Warfarin 5 mg daily. Alendronate 70 mg weekly, taken for 6 years.) Tj
+T*
+(Metformin 1000 mg twice daily. Lisinopril 20 mg daily. Metoprolol 50 mg twice daily.) Tj
+T*
+(Stopped clopidogrel in June 2026.) Tj
+T*
+T*
+/F2 11 Tf
+(Allergies) Tj
+T*
+/F1 10.5 Tf
+(Allergic to penicillin \(anaphylaxis\). No latex allergy.) Tj
+T*
+T*
+/F2 11 Tf
+(Results) Tj
+T*
+/F1 10.5 Tf
+(INR 3.1. HbA1c 8.4 percent. eGFR 52 mL/min.) Tj
+T*
+T*
+/F2 11 Tf
+(History) Tj
+T*
+/F1 10.5 Tf
+(No history of stroke. Denies chest pain. Mother had breast cancer. Former smoker, quit 2005.) Tj
+T*
+T*
+/F2 11 Tf
+(Follow up) Tj
+T*
+/F1 10.5 Tf
+(Anticoagulation clinic in 1 week. The patient plans to book a dental appointment.) Tj
+T*
+ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000054 00000 n 
+0000000113 00000 n 
+0000000162 00000 n 
+0000000304 00000 n 
+0000000374 00000 n 
+0000000449 00000 n 
+trailer
+<<
+/Size 8
+/Root 3 0 R
+/Info 1 0 R
+>>
+startxref
+1891
+%%EOF
