@@ -1,0 +1,141 @@
+%PDF-1.3
+%‚„œ”
+1 0 obj
+<<
+/Producer (pypdf)
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 1
+/Kids [ 4 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+4 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 5 0 R
+/F2 6 0 R
+>>
+>>
+/MediaBox [ 0.0 0.0 612 792 ]
+/Parent 2 0 R
+/Contents 7 0 R
+>>
+endobj
+5 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+endobj
+6 0 obj
+<<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica-Bold
+>>
+endobj
+7 0 obj
+<<
+/Length 2127
+>>
+stream
+BT
+/F2 13 Tf
+50 750 Td
+(Summary of Benefits and Coverage - Bronze HDHP \(SAMPLE\)) Tj
+0 -6 Td
+/F1 9.5 Tf
+13 TL
+(SAMPLE DOCUMENT - fictional plan written for software demonstration. Not a real insurance contract.) Tj
+T*
+(Plan: Bronze HDHP with HSA        Plan type: PPO) Tj
+T*
+(Coverage period: 01/01/2026 - 12/31/2026        Coverage for: Individual + Family) Tj
+T*
+T*
+/F2 10.5 Tf
+(Important questions) Tj
+T*
+/F1 9.5 Tf
+(What is the overall deductible? $7,000 individual / $14,000 family. Most services are subject to the deductible.) Tj
+T*
+(What is the out-of-pocket limit? $8,500 individual / $17,000 family.) Tj
+T*
+T*
+/F2 10.5 Tf
+(Common medical events) Tj
+T*
+/F1 9.5 Tf
+(Primary care visit: 40% coinsurance after the deductible. Specialist visit: 40% coinsurance after the deductible.) Tj
+T*
+(Diagnostic test \(x-ray, blood work\): 40% coinsurance. Imaging \(CT/PET scans, MRIs\): 40% coinsurance.) Tj
+T*
+(Generic drugs: 40% coinsurance after the deductible. Emergency room care: 40% coinsurance after the deductible.) Tj
+T*
+(Outpatient surgery, facility fee and physician or surgeon fees: 40% coinsurance after the deductible.) Tj
+T*
+(Hospital stay, facility fee and physician or surgeon fees: 40% coinsurance after the deductible.) Tj
+T*
+T*
+/F2 10.5 Tf
+(Excluded services and other covered services) Tj
+T*
+/F1 9.5 Tf
+(Services your plan generally does NOT cover: cosmetic surgery, dental care \(adult\), long-term care,) Tj
+T*
+(routine eye care \(adult\), routine foot care, weight loss programs.) Tj
+T*
+(Other covered services: chiropractic care \(20 visits per year\), hearing aids, bariatric surgery.) Tj
+T*
+T*
+/F2 10.5 Tf
+(Note) Tj
+T*
+/F1 9.5 Tf
+(This summary does not list every covered service or exclusion. See the Certificate of Coverage for details.) Tj
+T*
+T*
+/F2 10.5 Tf
+(Your grievance and appeal rights) Tj
+T*
+/F1 9.5 Tf
+(If you disagree with a benefit decision you may file an appeal within 180 days of the notice.) Tj
+T*
+(You may request an external review by an independent review organization after the internal appeal.) Tj
+T*
+T*
+(Page 1 of 1 - SAMPLE, fictional document for software demonstration) Tj
+ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000054 00000 n 
+0000000113 00000 n 
+0000000162 00000 n 
+0000000304 00000 n 
+0000000374 00000 n 
+0000000449 00000 n 
+trailer
+<<
+/Size 8
+/Root 3 0 R
+/Info 1 0 R
+>>
+startxref
+2628
+%%EOF

@@ -51,7 +51,7 @@ extra=[n for i,n in ids.items() if i.startswith("CS-3")]
 if extra: print("  --    patients added at runtime: " + ", ".join(extra) + " (keep them, or remove any rehearsal leftovers in Manual > Patients)")'
 
 echo "Sample files"
-for f in margaret_ellis_discharge_summary.pdf daniel_okafor_cardiology_letter.pdf sample_plan_PPO_oral_surgery_covered.pdf sample_plan_HMO_impacted_teeth_excluded.pdf; do
+for f in margaret_ellis_discharge_summary.pdf daniel_okafor_cardiology_letter.pdf plans/01_PPO_oral_surgery_covered.pdf plans/02_HMO_impacted_teeth_excluded.pdf; do
   [ -f "$(dirname "$0")/$f" ] && ok "$f" || fail "$f is missing"
 done
 [ -z "$FAILED" ] && echo && echo "Ready." || { echo; echo "Fix the FAIL lines above first."; exit 1; }

@@ -68,10 +68,13 @@ Still on case 1's text:
 
 | # | Do this | Expected result | The point to make |
 | :- | :--- | :--- | :--- |
-| 7 | Upload `sample_plan_PPO_oral_surgery_covered.pdf` as the plan document, run case 1 again | **Potential medical pathway** (no "plan not verified"), with quotes tagged *Member's own plan* | Now it has read this patient's actual plan. |
-| 8 | Remove it, set Plan type **HMO**, upload `sample_plan_HMO_impacted_teeth_excluded.pdf`, run case 1 again | **No medical pathway**: "The member's own plan document excludes this" | Same patient, same tooth, same insurer, different plan, opposite answer. The plan outranks the insurer's general policy. |
+| 7 | Upload `plans/01_PPO_oral_surgery_covered.pdf` as the plan document, run case 1 again | **Potential medical pathway** (no "plan not verified"), with quotes tagged *Member's own plan* | Now it has read this patient's actual plan. |
+| 8 | Remove it, set Plan type **HMO**, upload `plans/02_HMO_impacted_teeth_excluded.pdf`, run case 1 again | **No medical pathway**: "The member's own plan document excludes this" | Same patient, same tooth, same insurer, different plan, opposite answer. The plan outranks the insurer's general policy. |
 | 9 | Set Region to **United Kingdom**, run again | "UK is not supported yet", nothing guessed | It says what it cannot do. Set Region back to United States afterwards. |
 | 10 | Set Dental benefit to **Active**, run again | **Use the dental benefit**, two steps only | It never goes looking for a medical route when the dental benefit can pay. (This check runs first, before region or anything else.) |
+
+More plan documents (TMJ covered, TMJ excluded, Medicare Advantage "integral to medical treatment", and a thin SBC that
+does not answer the question) are in [`plans/`](plans/README.md). Those four were generated without being run through the app.
 
 ### Finish: the document
 Back on case 7 (potential pathway): type a reviewer name, press **Create and file to chart**. Show the first lines:
