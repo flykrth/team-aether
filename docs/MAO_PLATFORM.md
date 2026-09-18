@@ -26,11 +26,12 @@ One of three things happens next:
 2. **Somebody notices, and the day falls apart.** The front desk calls the cardiology office, gets
    voicemail, sends a fax, and waits. The patient goes home with the tooth still in. The chair sits
    empty. The follow-up takes days of phone and fax tag, and nobody owns it.
-3. **The surgery eventually happens, and the patient pays for it twice.** A medically complex
-   surgical extraction gets billed to a dental plan with a small annual maximum, when the patient's
-   medical insurance, with its far larger coverage, was the right payer. The office never tries,
-   because a medical claim needs a CMS-1500, diagnosis codes and a Letter of Medical Necessity, and
-   nobody at a dental front desk has the time to write one.
+3. **When the dental benefit runs out, nobody checks whether medical insurance genuinely applies.**
+   Most dental care is not a medical benefit, and pretending otherwise is fraud. But some of it is: jaw
+   fractures, tumors and cysts, some impacted teeth, TMJ, sleep apnea, dental care integral to cancer or
+   transplant treatment. Whether it applies depends on the patient's actual condition and their specific
+   plan. A front desk has neither the time to read a payer's clinical policy nor the training to know when
+   the honest answer is "no".
 
 ### Why this keeps happening
 
@@ -66,22 +67,22 @@ MAO is a layer on top of the Medical-Dental Interoperability Node (MDIN, documen
 
 | Part | What it does | Where it lives |
 |---|---|---|
-| **Four autonomous agents** | Intake, Clinical Risk, Medical Clearance and Commercial Billing, wired as a LangGraph state graph over one shared state, triggered by appointment events and streamed live to the UI | `backend/app/services/agent_supervisor.py`, `backend/app/services/agents/` |
+| **Three clinical agents** | Intake, Clinical Risk and Medical Clearance, wired as a LangGraph state graph over one shared state, triggered by appointment events and streamed live to the UI | `backend/app/services/agent_supervisor.py`, `backend/app/services/agents/` |
 | **The MAO Assistant** | One master tool-calling agent (Gemini, Groq or NVIDIA NIM) with 12 tools, a parallel panel of specialist models, voice input, and chat answers that carry live UI widgets | `backend/app/services/assistant/`, `frontend/src/components/assistant/` |
+| **Dental Coverage Recovery Agent** | When the dental benefit cannot pay: is there a genuine medical indication, and does this patient's medical plan have a pathway for it? RAG over the payers' published policies and the member's own plan document; every statement is a verified verbatim quote | `backend/app/services/coverage/`, `frontend/src/components/coverage/` |
 | **Patient records** | Add a patient, add medical history, import a previous record: from a form panel, or just by describing it in chat. Coding is deterministic | `backend/app/services/patient_registry.py`, `frontend/src/components/records/` |
 
 ### The 3-act demo
 
 **Act 1. The agents work while nobody is watching.**
 An `appointment.booked` event arrives for Robert Chen (CS-9921), surgical extraction D7210. On the
-Agent Live Ops screen the four agents light up in order. Intake pulls his linked medical record.
-Risk finds the coronary stent (ICD-10 Z95.5) and rates the procedure CRITICAL. Then two agents run
-in the same step: Clearance locates his physician and dispatches a FHIR Task to the physician's
-EHR inbox, while Billing matches D7210 to CPT 41899, fills a CMS-1500 and uploads a Letter of
-Medical Necessity to his chart. The physician's free-text reply comes back, is parsed into
-`LIMIT_EPINEPHRINE_2_CARPULES` and `MAINTAIN_ASPIRIN`, and the appointment flips to
-`CLEARED_FOR_CARE`. (The dashboard labels these three beats as its own acts: the invisible work, the
-physician loop, the financial payoff.)
+agents run in order (ask the assistant "run the agents for Robert Chen, D7210"). Intake pulls his linked
+medical record. Risk finds the coronary stent (ICD-10 Z95.5) and rates the procedure CRITICAL. Clearance
+locates his physician and dispatches a FHIR Task to the physician's EHR inbox. The physician's free-text
+reply comes back, is parsed into `LIMIT_EPINEPHRINE_2_CARPULES` and `MAINTAIN_ASPIRIN`, and the appointment
+flips to `CLEARED_FOR_CARE`. Then the honest part: in **Coverage recovery**, his extraction comes back
+**No medical pathway**, quoting the payer. A stent makes the extraction riskier; it does not make it a
+medical benefit.
 
 **Act 2. Talk to it.**
 In the chat, press the mic: "Summarize Robert Chen's medical history and tell me if the extraction
@@ -92,7 +93,7 @@ conversation. Ask for a second opinion and three specialist models answer in par
 "Add a new patient, Maria Alvarez, born March 14 1958. She takes warfarin for atrial fibrillation,
 has type 2 diabetes, and needs a D7210." The assistant registers her, and the backend (not the
 model) codes warfarin to RxNorm 11289, atrial fibrillation to ICD-10 I48.91 and diabetes to E11.9.
-One more sentence, "run the agents for her", and the same four agents from Act 1 rate her CRITICAL
+One more sentence, "run the agents for her", and the same agents from Act 1 rate her CRITICAL
 and request clearance. A patient who did not exist a minute ago is fully inside the workflow.
 
 ---
@@ -114,7 +115,7 @@ flowchart LR
         RS["/api/assistant"]
         RR["/api/records"]
         SUP["AgenticSupervisor<br/>LangGraph StateGraph + event queue"]
-        AG["Intake, Risk, Clearance, Billing agents<br/>deterministic rules"]
+        AG["Intake, Risk, Clearance agents<br/>deterministic rules"]
         ORCH["Assistant orchestrator<br/>master loop, widgets, failover"]
         TOOLS["12 tools<br/>5 read, 7 action"]
         SPEC["Specialist panel<br/>asyncio.gather"]
@@ -167,21 +168,14 @@ stateDiagram-v2
     [*] --> intake_agent
     intake_agent --> risk_agent
     risk_agent --> clearance_agent: clearance_status == REQUIRED_PENDING
-    risk_agent --> billing_agent: always
+    risk_agent --> [*]: otherwise
     clearance_agent --> [*]
-    billing_agent --> [*]
-
-    note right of risk_agent
-        route_after_risk returns both targets or billing only.
-        Both targets run in the same LangGraph superstep.
-    end note
 ```
 
 Built in `AgenticSupervisor._build_graph()`:
-`START -> intake_agent -> risk_agent -> (clearance_agent || billing_agent) -> END`, compiled with an
-`InMemorySaver` checkpointer. The Clearance branch exists only when the Risk agent sets
-`clearance_status = "REQUIRED_PENDING"`; Billing always runs. If `langgraph` cannot be imported the
-supervisor runs an equivalent loop (`asyncio.gather` for the parallel branch) and reports
+`START -> intake_agent -> risk_agent -> clearance_agent (only if REQUIRED_PENDING) -> END`, compiled with an
+`InMemorySaver` checkpointer. Insurance is deliberately not part of this graph (see section 4.10). If
+`langgraph` cannot be imported the supervisor runs an equivalent loop and reports
 `engine: "deterministic"` from `/api/agents/status`.
 
 The second half of the clearance loop is asynchronous and happens after the graph finishes:
@@ -222,7 +216,7 @@ sequenceDiagram
     O->>S: question + patient_id
     par three roles, round-robin over non-master providers
         S->>P1: clinical_safety (25 s timeout)
-        S->>P2: medical_billing (25 s timeout)
+        S->>P2: treatment_planning (25 s timeout)
         S->>P1: patient_communication (25 s timeout)
     end
     S-->>O: opinions with provider, model, latency_ms, ok
@@ -294,7 +288,7 @@ flowchart TD
 
 ## 4. How each part works
 
-### 4.1 The four agents
+### 4.1 The clinical agents
 
 Each agent is an async callable that takes the shared state and returns a **partial update**.
 None of them calls an LLM.
@@ -348,19 +342,13 @@ drives the handoff.
    first two clear the appointment.** Anything else sets `requires_staff_review`, keeps the
    appointment on `REQUIRES_ACTION` and flags the front desk.
 
-#### Commercial Billing Agent (`agents/billing_agent.py`)
+#### Why there is no billing agent
 
-- Checks the FHIR ConceptMap crosswalk first (`crosswalk_engine.evaluate_cross_coding`), then the
-  agent's own systemic-justification rule: surgical extractions D7210 and D7240 map to CPT 41899
-  (alternate 21210 if bone grafting is performed) when the record holds M26.61, Z95.5 or E11.9.
-- Fills a CMS-1500 (Boxes 1 to 33) from CareStack demographics and the coded diagnoses; adds
-  modifier 22 for D7240.
-- Synthesizes a Letter of Medical Necessity through the shared document generator and appends a
-  "Multi-Agent Clinical Findings" section citing the Risk agent's contraindications and, once
-  signed, the physician's restrictions. Uploads it to the CareStack chart.
-- After a physician approval, the supervisor re-runs Billing so the LOMN cites the signed clearance.
-- **The `$1,200` "estimated savings" figure is a constant in a demo rule, not a payer quote.** The
-  module docstring says so, and so does the assistant's system prompt.
+An earlier version had a "Commercial Billing Agent" that mapped a surgical extraction to a medical CPT code whenever
+the chart held a stent or diabetes, with a constant "$1,200 savings". It was removed: a medical condition that makes
+dental treatment riskier is not a medical indication for the dental service, and Aetna's own policy says removal of
+teeth at risk of infection is "not covered under medical plans". Insurance is now handled by the Dental Coverage
+Recovery Agent (section 4.10), which starts from the clinical condition and quotes the payer.
 
 ### 4.2 Shared `MAOState`
 
@@ -368,7 +356,7 @@ drives the handoff.
 
 - `MAOState` (TypedDict): the LangGraph channel schema. `risk_evaluations` and `agent_logs` are
   annotated with `operator.add`, so they are **append-only channels**. Nodes return only their new
-  entries, which is what lets Clearance and Billing write logs in the same superstep without
+  entries, which lets parallel nodes write logs in the same superstep without
   clobbering each other.
 - `MAOStateModel` (Pydantic): validates the state at creation and again when a thread completes.
   Status fields are `Literal` types, so an agent cannot write a status that does not exist.
@@ -394,7 +382,7 @@ Fields: `patient_id`, `patient_name`, `dob`, `appointment {timestamp, operatory,
 ### 4.4 The assistant's tools
 
 Twelve tools are declared once (`tools.py`, `record_tools.py`) and exposed to every provider. Tools
-return compact dicts: raw FHIR bundles, the CMS-1500 payload and letter text are summarized, not
+return compact dicts: raw FHIR bundles and letter text are summarized, not
 passed through.
 
 | Tool | Kind | What it does |
@@ -404,7 +392,8 @@ passed through.
 | `assess_clinical_risk` | read | Runs the Intake and Risk rules for a patient and CDT code; writes nothing |
 | `get_agent_state` | read | Summary of the latest supervisor thread for a patient |
 | `consult_specialists` | read | Parallel second opinions from the specialist panel |
-| `run_agent_workflow` | **action** | Runs all four agents; may post an alert, dispatch clearance, upload an LOMN |
+| `run_agent_workflow` | **action** | Runs the clinical agents; may post an alert and dispatch a clearance request |
+| `check_medical_coverage_pathway` | read | The Coverage Recovery pipeline; the only source the assistant may use for insurance statements |
 | `submit_physician_reply` | **action** | Files the physician's reply through the Clearance agent |
 | `check_clearance_escalations` | **action** | Runs the 48-hour escalation sweep |
 | `post_chart_alert` | **action** | Posts a medical alert to the CareStack chart |
@@ -465,7 +454,7 @@ to `sessionStorage`, so switching modes does not lose it. (The earlier tabbed sh
   less. The `name` field is never sent on messages because Groq rejects it.
 - **Failover**: a master error before any tool ran moves the turn to the next provider. After a
   tool has run, the error is raised (HTTP 502) so nothing can act twice.
-- **Specialists** (`specialists.py`): three roles (`clinical_safety`, `medical_billing`,
+- **Specialists** (`specialists.py`): three roles (`clinical_safety`, `treatment_planning`,
   `patient_communication`) run concurrently with `asyncio.gather`, spread round-robin across the
   non-master providers, or on the master's own model when it is the only key. Each gets a compact
   patient history capped at 3,000 characters, **no tools**, and a 25-second timeout. A failing or
@@ -549,7 +538,7 @@ to `sessionStorage`, so switching modes does not lose it. (The earlier tabbed sh
 ### 4.9 Manual mode: Patients, Risk check, and PDF records
 
 Manual mode (`frontend/src/App.jsx`) is a slim icon rail with four views: **Patients**, **Risk
-check**, **Agent ops** (the 3-act dashboard) and **Physician portal**. The mode and view are
+check**, **Coverage recovery** and **Physician portal**. The mode and view are
 remembered in `localStorage`.
 
 **Patients** (`components/manual/PatientsView.jsx`) is a searchable list plus the selected chart.
@@ -594,7 +583,6 @@ UI says so). Output:
    generated. If Europe PMC is unreachable the findings still return, without quotes.
 3. An optional **second look** from the master LLM (no tools), shown separately and labelled as
    unverified AI suggestions; it is instructed never to advise stopping a medication.
-4. A cross-billing hint from the Billing agent's rules (demo estimate).
 
 **Intelligent reading of records** (`services/record_intelligence.py`, used by `POST /api/records/extract`,
 `/extract-file` and the chat import). The master LLM reads the document and returns JSON: the document's type, date,
@@ -655,11 +643,76 @@ with its id), `update_patient_details` (name, date of birth, contact, appointmen
 ids must come from the chart (a made-up id fails), removal is refused unless the user's own message asks for it, and
 all three are blocked in a turn that imported a previous record. Gemini calls retry twice on a transient 429/500/503.
 
+### 4.10 Dental Coverage Recovery Agent
+
+**The question it answers:** the dental benefit cannot pay (expired, exhausted, denied, none). Does the patient's
+dental problem have a *legitimate medical indication*, and does *this patient's* medical plan have a pathway for the
+service? It does not convert dental claims into medical claims. Its outcomes are **No medical pathway**, **Potential
+medical pathway** (optionally "plan not verified"), **Needs human review** and **Use the dental benefit**. It never
+says "covered": only a payer decides that.
+
+```mermaid
+flowchart TD
+    A[Dental benefit status<br/>staff select] -->|active| N[Normal dental workflow]
+    A -->|expired / exhausted / denied / none| F[Layer 1: clinical facts<br/>true / false / UNKNOWN]
+    F --> C[Layer 2: clinical category<br/>routing only]
+    C --> R[Layer 3a: payer policy<br/>RAG over cached published policies]
+    R --> P[Layer 3b: member plan document<br/>uploaded SBC / Certificate of Coverage]
+    P --> M[Model PROPOSES criteria<br/>quote + passage + case fact]
+    M --> V{Server verifies<br/>quote in source? fact exists?}
+    V --> D[Layer 4: outcome by fixed rules]
+    D -->|no| X[Explain why, with the payer's words]
+    D -->|yes| E[Pre-treatment estimate request<br/>named human sign-off]
+    D -->|uncertain| H[Human review: what the chart must answer]
+```
+
+**No coverage knowledge lives in the code.** `backend/app/data/coverage_sources.json` is a registry of URLs only
+(Aetna CPB 0082 / 0028 / 0095 / 0004, Cigna 0156 and 0209, UnitedHealthcare TMJ / orthognathic / sleep apnea, Blue Cross
+NC, Excellus BCBS, CMS Medicare dental). `policy_store.py` downloads them, keeps heading structure, chunks them, records
+each chunk's CDT / CPT / ICD-10 codes and the payer's own code-group heading, and parses review dates. The cache
+(`backend/app/data/policy_cache/`) is git-ignored: payer policies are copyrighted, so they stay on the practice's
+machine and only short attributed quotes with a link are shown. A failed download is shown as failed; the last good
+copy keeps serving with the error attached.
+
+**Only policy text is quotable.** Each chunk is tagged by its top-level section. "Background", "References" and
+literature-review sections (more than half of the raw text) are excluded from retrieval entirely, so a sentence
+from a literature review can never be presented as a coverage rule.
+
+**RAG** (`retrieval.py`, `embeddings.py`): three signals fused by reciprocal rank. (1) exact code match against the
+codes each chunk lists, the most precise signal because payers publish their own code tables; (2) semantic search
+with API embeddings (Gemini `gemini-embedding-2`, or NVIDIA `llama-nemotron-embed-1b-v2`) in a local ChromaDB
+collection; (3) BM25, which is also the whole retriever when no embedding key is set. Indexing is metered for the free
+tier (100 items per minute), resumable, saves after every batch and runs in the background while search keeps working.
+
+**The guarantees, each pinned by a test in `tests/test_coverage_recovery.py`:**
+
+| Guarantee | How |
+| :--- | :--- |
+| A made-up quote cannot create a pathway | `analyst.verify` keeps a criterion only if its quote occurs verbatim in the cited passage; the rest are dropped and counted on screen |
+| "Met" needs a real fact | A criterion is "met" only if it names a numbered case fact; otherwise it becomes "unknown" |
+| Unknown is never treated as no | Case flags are true / false / `None`; any unanswered supporting condition sends the case to human review and is listed |
+| The model cannot move the outcome | `analyst.determine` computes it from the verified criteria; the model is never asked for a verdict |
+| The plan outranks the policy | An exclusion quoted from the member's own plan document means "no pathway"; with no plan document the best outcome is "plan not verified" |
+| No invented money or codes | No savings figure exists. No medical procedure code is suggested; the screen only reports where the payer's own table lists the CDT code |
+| Risk is not indication | A stent, anticoagulant or diabetes on the chart sets no case flag; the extraction-with-stent case returns "No medical pathway" |
+| Honest about gaps | No LLM: passages are shown and the case goes to review. Insurer not in the library: other payers are shown "for orientation only" and the case goes to review. UK and Australia: "not supported yet", no guess |
+
+**What leaves the building** (`packet.py`): for a potential pathway, a *pre-treatment estimate request* (explicitly
+"not a claim") with the confirmed facts, the payer wording they satisfy, the documentation the payer asks for, and a
+named reviewer; without a name it is refused. For "no pathway", a plain-language explanation for the patient quoting
+the payer. Both are filed to the chart. The analysis used is the server's own copy, not data sent back by the browser.
+
+**How this maps to the real world.** Practices learn this through X12 270/271 eligibility checks, the member's SBC /
+Certificate of Coverage, and a pre-treatment estimate or prior authorization (X12 278); Aetna itself tells members to
+request a pre-treatment estimate for oral surgery. Here the dental benefit status is a staff select and the plan
+document is uploaded; both are the seams where a clearinghouse feed and a 278 / Da Vinci PAS submission would plug in.
+The Da Vinci prior-authorization stack is built on CDS Hooks, which this codebase already implements.
+
 ## 5. Safety and honesty by design
 
 | Principle | How the code enforces it |
 |---|---|
-| **Clinical logic is deterministic** | The four agents, the narrative extractor, the physician-reply parser and the registry's coding contain no LLM calls. Every hazard traces to a `rule_id`; every code traces to a lexicon entry or an explicit user code. |
+| **Clinical logic is deterministic** | The clinical agents, the narrative extractor, the physician-reply parser and the registry's coding contain no LLM calls. Every hazard traces to a `rule_id`; every code traces to a lexicon entry or an explicit user code. |
 | **The LLM never invents patient facts** | The system prompt forbids stating any diagnosis, medication, lab value, status or dollar amount that did not come from a tool result in the conversation. Widgets are built from tool results, not model text, so the cards on screen are the backend's data even if the prose is imperfect. |
 | **The LLM never invents codes** | The `add_medical_history` schema tells the model to pass the user's own words and "never guess codes", and the server enforces it: a `code` from the model survives only if the user typed that exact string, and even then it must be well-formed and must not contradict the lexicon. Unknown text is stored uncoded and reported as `unrecognized`. |
 | **Negated findings are never charted** | The record extractor excludes negated, family-history and discontinued statements and reports them with the reason. A record imported from chat (no human preview) is charted as unconfirmed. |
@@ -690,8 +743,10 @@ A real deployment would need, at minimum:
   hospital EHR, and a real SMS gateway (the nudge SMS is recorded as `simulated_sent`).
 - **Clinical governance**: the risk rules and lexicons reviewed and owned by clinicians, with
   versioning. They are a focused demo knowledge base, not a complete one.
-- **Payer policy**: the cross-billing rules and the `$1,200` figure are demo heuristics. Whether a
-  given plan pays CPT 41899 for a given diagnosis must be verified per payer before any claim is submitted.
+- **Payer policy**: the Coverage Recovery Agent reads published policy and the member's plan document, but only the
+  payer decides coverage. Its best outcome is "potential pathway", which means "request a pre-treatment estimate".
+  Production use needs real eligibility (X12 270/271) and prior-authorization (X12 278, or the FHIR Da Vinci PAS API
+  required of US payers from 2027) connections, and a certified coder for medical procedure codes.
 
 ---
 
@@ -799,6 +854,12 @@ loops and Groq Whisper are verified against mocks; live verification needs the c
 | POST | `/api/records/extract-file` | multipart `file` (PDF, .txt, .md, .json, .csv; 10 MB) | `{text, method, pages, truncated, filename, entries, excluded}` (writes nothing) | 422 |
 | POST | `/api/risk/check` | `{patient_id, procedure, current_notes?, include_evidence?, include_ai?}` | `{procedure, hazard_level, physician_clearance_required, history_on_file, reported_today, findings:[{..., from_todays_notes, literature:[{quote, title, journal, year, url}]}], second_look, billing}` (writes nothing) | 422 |
 | GET | `/api/risk/procedures` | | Procedure phrases the risk check understands | |
+| GET | `/api/coverage/sources?region=` | | Regions, insurers, every registered source with cached / age / review date / error, index progress | |
+| POST | `/api/coverage/sources/refresh` | | Re-downloads the published policies and re-indexes in the background; reports failures | |
+| GET / PUT | `/api/coverage/patients/{patient_id}/insurance` | `{dental:{status, carrier, note}, medical:{insurer, plan_name, plan_type, member_id}}` | Insurance profile | 404, 422 |
+| POST / DELETE | `/api/coverage/patients/{patient_id}/plan-document` | multipart `file` | Stores / removes the member's plan document (kept locally) | 404, 422 |
+| POST | `/api/coverage/analyze` | `{patient_id, region, procedure, diagnosis?, imaging?, clinical_note?, flags?}` | `{determination, steps, facts, classification, criteria:[{kind, met, quote, fact, source}], missing_information, code_tables, passages, dropped_ungrounded}` | 404 |
+| POST | `/api/coverage/packet` | `{patient_id, reviewed_by}` | Pre-treatment estimate request or patient explanation, filed to the chart | 404, 422 |
 
 An `entry` is `{type: condition|medication|allergy|observation, text, code?, system?, display?, onset?, value?, unit?}`.
 
@@ -814,19 +875,18 @@ lines once in the actual room.
 | Time | Do | Say |
 |---|---|---|
 | 0:00 | Title slide or the app's home screen | "A man with an eight-month-old heart stent is about to have a tooth surgically removed. His cardiologist knows about the stent. The dental office does not. We built the thing that closes that gap." |
-| 0:20 | Agent Live Ops, scenario **Robert Chen, D7210**, press run | "An appointment was just booked. Nobody clicked anything else. Watch four agents pick it up." |
-| 0:30 | Point at the timeline as it streams | "Intake pulls his medical record over FHIR. Risk finds the stent, rule CARDIAC_STENT_DAPT, hazard CRITICAL, and posts an alert to the chart. Now two agents run in parallel: Clearance sends a FHIR Task to his physician's inbox, and Billing maps D7210 to CPT 41899, fills a CMS-1500 and writes the Letter of Medical Necessity." |
-| 0:55 | Submit the physician reply: *"Cleared for extractions, limit to 2 carpules 1:100k epi, maintain Aspirin"* | "The physician answers in plain English. We parse it into structured restrictions, two carpules of epinephrine, maintain aspirin, and the appointment flips to cleared. If that reply had been vague, it would not clear. It goes to a human." |
+| 0:20 | In the chat, say: **"Run the agents for Robert Chen, D7210."** | "An appointment was just booked. Watch the agents pick it up: intake pulls his medical record over FHIR, risk finds the stent and rates it CRITICAL, clearance sends a FHIR Task to his cardiologist." |
+| 0:45 | Say: **"Dr. Vance replied: cleared, max 2 carpules of epinephrine, keep aspirin. File it for Robert Chen."** | "The physician answers in plain English. We parse it into structured restrictions and the appointment is cleared. Nobody at the front desk made a phone call." |
 | 1:15 | Open the chat workspace. Tap the mic and speak: **"Summarize Robert Chen's medical history and tell me whether a D7210 is safe."** Let the countdown send it | "Now the front desk just talks to it." Point at the cards: "These cards are not written by the model. They are rendered from the tool results, so what you see is the chart." |
-| 1:40 | Type or say: **"Get a second opinion from the specialists."** | "One master agent, three specialists in parallel on different providers: clinical safety, medical billing, and a patient-message drafter. Each shows its provider and latency. None of them can take an action." |
+| 1:40 | Type or say: **"Get a second opinion from the specialists."** | "One master agent, three specialists in parallel on different providers: clinical safety, treatment planning, and a patient-message drafter. Each shows its provider and latency. None of them can take an action." |
 | 2:00 | Tap the mic: **"Add a new patient, Maria Alvarez, born March 14th 1958. She takes warfarin for atrial fibrillation, has type 2 diabetes, and needs a D7210."** | "We never opened a form. The model only routed that sentence. The backend coded it: warfarin is RxNorm 11289, atrial fibrillation is I48.91, diabetes is E11.9. If I had said something it does not know, it would store it as plain text and tell me, not guess a code." |
-| 2:25 | Say: **"Run the agents for her."** | "A patient who did not exist a minute ago: CRITICAL for the anticoagulant, clearance requested, and because of the diabetes diagnosis the billing agent flags a medical cross-billing opportunity. That dollar figure is a demo heuristic, and the assistant says so." |
+| 2:25 | Manual mode, **Coverage recovery**: dental benefit "annual maximum used up", procedure *D7240 bony impacted third molar*, note *recurrent pericoronitis with swelling* | "Her dental benefit is used up. Is there a genuine medical pathway? It reads Aetna's published policy and shows the exact sentence. It says potential pathway, plan not verified, never covered. Now the same check for a crown: no pathway, with Aetna's own exclusion. It tells you when not to bill." |
 | 2:40 | Open the patient records panel, Previous records tab, paste a short discharge summary, press **Preview what will be added** | "Old records come in the same way. Every extracted item shows the exact clause it came from, and you tick what to keep." |
-| 2:50 | Back to camera | "Deterministic rules decide. Language models listen, route and explain. 223 automated tests. Synthetic data, a simulated CareStack and EHR, and standards, FHIR, CDT, CPT, CMS-1500, that map straight onto the real ones." |
+| 2:50 | Back to camera | "Deterministic rules decide. Language models listen, route and explain. 332 automated tests. Synthetic data, a simulated CareStack and EHR, and standards, FHIR, CDT, ICD-10, that map straight onto the real ones." |
 
 **If something fails live**: no mic permission or no speech key, the composer falls back to browser
-dictation, or just type the same sentences. If the model provider is down, the Agent Live Ops act
-and the records panel need no LLM at all.
+dictation, or just type the same sentences. If the model provider is down, the Risk check,
+the records panel and the coverage passages (keyword search) need no LLM at all.
 
 ---
 
@@ -841,9 +901,9 @@ and the records panel need no LLM at all.
 | **"Why three model providers?"** | Resilience, rate limits and independence. Free tiers are limited per provider and per model, so parallel calls are spread across them. If the master is down before it has acted, the turn fails over. And a second opinion from the same model is not a second opinion. Any single key still runs everything. | `providers.master_candidates`, `orchestrator.chat`, `specialists.specialist_providers` |
 | **"You said NVIDIA Nemotron speech. Does voice run on it?"** | Not the hosted service. NVIDIA's hosted speech recognition is gRPC-only and we took no new dependencies, so that route is an explicit unimplemented hook. Voice runs on Groq Whisper over HTTPS, with the browser's Web Speech API as fallback. The NVIDIA route that is implemented is the HTTP API of a self-hosted Speech NIM, switched on by `NVIDIA_STT_URL`. NVIDIA NIM is used for chat and specialists. | `speech.py` docstring |
 | **"Is this HIPAA compliant?"** | No, and it does not claim to be. It is a prototype on synthetic data. It sends patient context to third-party model APIs and has no authentication. Section 5 lists what production needs: BAAs or self-hosted models, auth and audit logs, encrypted durable storage, real integrations, clinical governance. The design choices that help are already in: provider base URLs are configurable for self-hosting, keys stay in headers, and clinical decisions do not depend on an external model. | Section 5 |
-| **"What is simulated and what is real?"** | **Simulated**: the CareStack PMS (in-process simulator), the hospital EHR (in-memory FHIR cache of synthetic patients), the physician inbox, the nudge SMS, payer rules and the savings figure. **Real**: the LangGraph state graph and background supervisor, SSE streaming, the rule engines and parsers, FHIR-shaped resources with real ICD-10-CM, RxNorm, SNOMED, LOINC, CDT and CPT codes, CMS-1500 population, the multi-provider tool-calling loops with failover, parallel specialists, the transcription endpoint, deterministic record coding with persistence, and 223 passing tests. On our dev machine only the Gemini path has been exercised against a live API; the Groq and NVIDIA loops and Whisper are verified against mocked HTTP. | Sections 4 and 6 |
+| **"What is simulated and what is real?"** | **Simulated**: the CareStack PMS (in-process simulator), the hospital EHR (in-memory FHIR cache of synthetic patients), the physician inbox, the nudge SMS. **Real**: the LangGraph state graph and background supervisor, SSE streaming, the rule engines and parsers, FHIR-shaped resources with real ICD-10-CM, RxNorm, SNOMED, LOINC, CDT and CPT codes, CMS-1500 population, the multi-provider tool-calling loops with failover, parallel specialists, the transcription endpoint, deterministic record coding with persistence, and 223 passing tests. On our dev machine only the Gemini path has been exercised against a live API; the Groq and NVIDIA loops and Whisper are verified against mocked HTTP. | Sections 4 and 6 |
 | **"Are the clinical rules right?"** | They encode widely taught precautions (recent stent on antiplatelets, antiresorptives and jaw osteonecrosis, anticoagulants and bleeding, blood pressure and glycemic checks) as a small demo knowledge base. They are decision support that routes to a physician, not a replacement for one, and a production rule set needs clinical ownership and review. | `risk_agent.py` |
-| **"Where does the $1,200 come from?"** | It is a constant in a demo cross-billing rule. It is labelled as a heuristic in the code, in the assistant's prompt and in this document. Real payer policy must be verified before a claim is submitted. | `billing_agent.SYSTEMIC_CROSS_BILL_RULES` |
+| **"Doesn't this just help practices bill medical for dental work?"** | No. It starts from the clinical condition, not the bill. Routine care returns "No medical pathway" with the payer's own exclusion quote. A quote the model cannot back with the source text is discarded, a condition the chart does not answer sends the case to a person, and no procedure code or dollar figure is ever suggested. | `services/coverage/analyst.py`, `tests/test_coverage_recovery.py` |
 | **"What happens if two people edit at once, or the server restarts?"** | Runtime patients persist to a JSON file with atomic writes and reload on restart. Supervisor threads and the simulator's alerts are in memory and reset on restart. That is acceptable for a demo and is on the roadmap. | `patient_registry._save`, section 10 |
 
 ---

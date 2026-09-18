@@ -4,8 +4,7 @@ MDIN Steps 14-15: Central Agentic Supervisor for the CareStack Multi-Agent Orche
 `AgenticSupervisor` compiles a LangGraph StateGraph over the shared `MAOState` and hands the
 state between four agent nodes:
 
-    START -> intake_agent -> risk_agent -+-> clearance_agent -> END   (only if REQUIRED_PENDING)
-                                         +-> billing_agent   -> END   (always; parallel with clearance)
+    START -> intake_agent -> risk_agent -> clearance_agent (only if REQUIRED_PENDING) -> END
 
 It runs continuously in the background: CareStack appointment bookings / webhook events are
 queued with `submit_event`, consumed by a worker task, and every node transition is published
@@ -21,7 +20,7 @@ import logging
 import uuid
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
-from .agents import ClinicalRiskAgent, CommercialBillingAgent, IntakeAgent, MedicalClearanceAgent
+from .agents import ClinicalRiskAgent, IntakeAgent, MedicalClearanceAgent
 from ..models.agent_state import (
     MAOState,
     create_initial_state,
@@ -43,7 +42,6 @@ logger = logging.getLogger(__name__)
 INTAKE_NODE = "intake_agent"
 RISK_NODE = "risk_agent"
 CLEARANCE_NODE = "clearance_agent"
-BILLING_NODE = "billing_agent"
 
 # Channels merged with operator.add in MAOState (nodes return only new entries)
 APPEND_CHANNELS = ("risk_evaluations", "agent_logs")
@@ -58,13 +56,8 @@ TRIGGER_EVENTS = {
 }
 
 def route_after_risk(state: MAOState) -> List[str]:
-    """
-    Conditional fan-out: when the Risk agent demands physician clearance, the Clearance and Billing
-    agents run in parallel (same superstep); otherwise Billing runs alone.
-    """
-    if state.get("clearance_status") == "REQUIRED_PENDING":
-        return [CLEARANCE_NODE, BILLING_NODE]
-    return [BILLING_NODE]
+    """Physician clearance only runs when the Risk agent demands it. (Insurance is not part of this graph: see services/coverage.)"""
+    return [CLEARANCE_NODE] if state.get("clearance_status") == "REQUIRED_PENDING" else []
 
 
 def merge_state(state: MAOState, update: Dict[str, Any]) -> MAOState:
@@ -122,7 +115,6 @@ class AgenticSupervisor:
             INTAKE_NODE: IntakeAgent(),
             RISK_NODE: ClinicalRiskAgent(),
             CLEARANCE_NODE: MedicalClearanceAgent(),
-            BILLING_NODE: CommercialBillingAgent(),
         }
         self.engine = "langgraph" if LANGGRAPH_AVAILABLE else "deterministic"
         self.graph = self._build_graph() if LANGGRAPH_AVAILABLE else None
@@ -142,9 +134,8 @@ class AgenticSupervisor:
             builder.add_node(name, node)
         builder.add_edge(START, INTAKE_NODE)
         builder.add_edge(INTAKE_NODE, RISK_NODE)
-        builder.add_conditional_edges(RISK_NODE, route_after_risk, [CLEARANCE_NODE, BILLING_NODE])
+        builder.add_conditional_edges(RISK_NODE, lambda state: route_after_risk(state) or [END], [CLEARANCE_NODE, END])
         builder.add_edge(CLEARANCE_NODE, END)
-        builder.add_edge(BILLING_NODE, END)
         return builder.compile(checkpointer=InMemorySaver())
 
     async def _iterate_nodes(self, thread: SupervisorThread) -> AsyncIterator[Dict[str, Dict[str, Any]]]:
@@ -239,8 +230,7 @@ class AgenticSupervisor:
     ) -> SupervisorThread:
         """
         Physician reply arrives (EHR callback / portal): the Clearance agent parses it into structured
-        restrictions and clears the appointment, then the Billing agent refreshes the LOMN so it cites
-        the signed clearance.
+        restrictions and clears the appointment.
         """
         thread = self.get_thread(patient_id)
         if thread is None:
@@ -252,8 +242,6 @@ class AgenticSupervisor:
             )
         update = self.nodes[CLEARANCE_NODE].ingest_physician_response(thread.state, text, signed_by)
         self._apply_followup(thread, CLEARANCE_NODE, update)
-        if thread.state["appointment"].get("status") == "CLEARED_FOR_CARE" and thread.state.get("cross_bill_eligible"):
-            self._apply_followup(thread, BILLING_NODE, await self.nodes[BILLING_NODE](thread.state))
         return thread
 
     def check_escalations(self, hours_since_dispatch: Optional[float] = None) -> List[SupervisorThread]:
@@ -388,9 +376,7 @@ class AgenticSupervisor:
                 ["START", INTAKE_NODE],
                 [INTAKE_NODE, RISK_NODE],
                 [RISK_NODE, f"{CLEARANCE_NODE} (parallel branch, only if clearance_status == REQUIRED_PENDING)"],
-                [RISK_NODE, f"{BILLING_NODE} (always)"],
                 [CLEARANCE_NODE, "END"],
-                [BILLING_NODE, "END"],
             ],
             "trigger_events": sorted(TRIGGER_EVENTS),
             "active_threads": [

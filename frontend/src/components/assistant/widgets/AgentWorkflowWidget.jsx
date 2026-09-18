@@ -1,12 +1,11 @@
 import React from 'react';
-import { Workflow, ClipboardList, ShieldAlert, Stethoscope, Receipt, Check, Minus, CalendarClock, PiggyBank, FileText } from 'lucide-react';
+import { Workflow, ClipboardList, ShieldAlert, Stethoscope, Check, Minus, CalendarClock } from 'lucide-react';
 import { WidgetShell, Inner, Group, Badge, ConceptChips, Fact, Notice, failureMessage, asList, pretty, money, HAZARD_CLS, APPOINTMENT_TILE } from './parts';
 
 const AGENTS = [
   { name: 'Intake Agent', short: 'Intake', Icon: ClipboardList },
   { name: 'Clinical Risk Agent', short: 'Risk', Icon: ShieldAlert },
   { name: 'Medical Clearance Agent', short: 'Clearance', Icon: Stethoscope },
-  { name: 'Commercial Billing Agent', short: 'Billing', Icon: Receipt },
 ];
 
 const CLEARANCE_CLS = {
@@ -30,8 +29,6 @@ export function AgentWorkflowWidget({ data, title }) {
   const physician = data.assigned_physician?.name ? data.assigned_physician : null;
   const protocol = data.clearance_protocol || {};
   const restrictions = asList(protocol.restrictions);
-  const claims = data.commercial_claims || {};
-  const hasClaim = Boolean(claims.suggested_cpt);
 
   return (
     <WidgetShell
@@ -94,23 +91,6 @@ export function AgentWorkflowWidget({ data, title }) {
             {protocol.signed_by && <div className="text-[11px] text-success-dark mt-1">Signed by {protocol.signed_by}</div>}
           </Inner>
         )}
-        {hasClaim && (
-          <Inner>
-            <div className="eyebrow mb-2 flex items-center gap-1.5"><PiggyBank className="w-3 h-3" /> Medical cross-billing</div>
-            <div className="flex items-baseline gap-2">
-              <span className="font-display text-xl font-medium text-ink">{money(claims.estimated_savings) || '—'}</span>
-              <span className="text-[11px] text-text-muted">estimated patient savings</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <Fact label="CPT" value={[claims.suggested_cpt, claims.alternate_cpt].filter(Boolean).join(' / ')} mono />
-              <Fact label="ICD-10" value={asList(claims.justifying_icd10).join(', ')} mono />
-            </div>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {claims.cms1500_ready && <Badge cls="bg-success-light text-success-dark"><Check className="w-3 h-3" />CMS-1500</Badge>}
-              {claims.lomn_attached && <Badge cls="bg-success-light text-success-dark"><FileText className="w-3 h-3" />LOMN attached</Badge>}
-            </div>
-          </Inner>
-        )}
       </div>
 
       {(restrictions.length > 0 || protocol.hold_medications || protocol.inr_target) && (
@@ -123,9 +103,6 @@ export function AgentWorkflowWidget({ data, title }) {
         </Group>
       )}
 
-      {!hasClaim && data.cross_bill_eligible === false && (
-        <p className="text-[11px] text-text-muted">Not eligible for medical cross-billing.</p>
-      )}
     </WidgetShell>
   );
 }

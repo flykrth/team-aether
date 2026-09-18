@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.models.agent_state import create_initial_state, validate_state
 from app.services.agent_supervisor import AgenticSupervisor, route_after_risk
-from app.services.agents import ClinicalRiskAgent, CommercialBillingAgent, IntakeAgent, MedicalClearanceAgent
+from app.services.agents import ClinicalRiskAgent, IntakeAgent, MedicalClearanceAgent
 
 ENDORSEMENT = "Cleared for extractions, keep epinephrine minimal, limit to 2 carpules 1:100k epi, maintain Aspirin"
 NARRATIVE = "Patient reports taking Alendronate for 4 years, had a cardiac stent placed 8 months ago"
@@ -156,8 +156,8 @@ def test_escalation_only_after_48_hours():
 # -- Graph ----------------------------------------------------------------------------
 
 def test_route_after_risk_fans_out_in_parallel():
-    assert route_after_risk({"clearance_status": "REQUIRED_PENDING"}) == ["clearance_agent", "billing_agent"]
-    assert route_after_risk({"clearance_status": "NOT_REQUIRED"}) == ["billing_agent"]
+    assert route_after_risk({"clearance_status": "REQUIRED_PENDING"}) == ["clearance_agent"]
+    assert route_after_risk({"clearance_status": "NOT_REQUIRED"}) == []
 
 
 @pytest.mark.anyio
@@ -178,13 +178,8 @@ async def test_robert_chen_full_run_then_physician_reply():
     assert state["assigned_medical_md"]["name"] == "Dr. Kenneth Vance, MD"
     assert state["assigned_medical_md"]["facility"] == "Metropolitan Heart Center"
     assert "Z95.5" in state["clearance_protocol"]["clinical_justification"]
-    claims = state["commercial_claims"]
-    assert state["cross_bill_eligible"] is True
-    assert claims["suggested_cpt"] == "41899" and claims["justifying_icd10"] == ["Z95.5"]
-    assert claims["estimated_savings"] == 1200.0
-    assert claims["cms1500_ready"] and claims["lomn_attached"]
-    assert claims["cms1500"]["diagnosis_codes"][0]["code"] == "Z95.5"
-    assert claims["cms1500"]["service_lines"][0]["cpt_code"] == "41899"
+    # A stent is a reason for caution, not a reason to bill medical: the state carries no billing claim at all
+    assert "commercial_claims" not in state and "cross_bill_eligible" not in state
 
     thread = await supervisor.ingest_physician_response("CS-9921", ENDORSEMENT)
     state = thread.state
@@ -197,12 +192,6 @@ async def test_robert_chen_full_run_then_physician_reply():
         await supervisor.ingest_physician_response("CS-9921", ENDORSEMENT)
 
 
-@pytest.mark.anyio
-async def test_billing_ineligible_without_qualifying_diagnosis():
-    update = await CommercialBillingAgent()(_state_with([], "D7210"))
-    assert update["cross_bill_eligible"] is False and "commercial_claims" not in update
-
-
 def test_run_simulation_endpoint():
     with TestClient(app) as client:
         resp = client.post("/api/agents/run-simulation", json={"patient_id": "CS-9921", "cdt_code": "D7210"})
@@ -210,14 +199,9 @@ def test_run_simulation_endpoint():
         body = resp.json()
         assert body["status"] == "COMPLETED"
         assert body["state"]["clearance_status"] == "TRANSMITTED_TO_EHR"
-        assert body["state"]["commercial_claims"]["estimated_savings"] == 1200.0
         assert {l["agent_name"] for l in body["state"]["agent_logs"]} == {
-            "Intake Agent", "Clinical Risk Agent", "Medical Clearance Agent", "Commercial Billing Agent",
+            "Intake Agent", "Clinical Risk Agent", "Medical Clearance Agent",
         }
-
-        docs = client.get("/api/carestack/patients/CS-9921/documents").json()
-        docs = docs if isinstance(docs, list) else docs.get("documents", [])
-        assert any(d["document_id"] == body["state"]["commercial_claims"]["lomn_document_id"] for d in docs)
 
         reply = client.post("/api/agents/clearance-response/CS-9921", json={"text": ENDORSEMENT})
         assert reply.status_code == 200

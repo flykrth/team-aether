@@ -201,7 +201,7 @@ async def test_specialists_run_concurrently_on_the_non_master_providers(monkeypa
     elapsed = time.perf_counter() - started
 
     opinions = result["opinions"]
-    assert [o["role"] for o in opinions] == ["clinical_safety", "medical_billing", "patient_communication"]
+    assert [o["role"] for o in opinions] == ["clinical_safety", "treatment_planning", "patient_communication"]
     assert [o["provider"] for o in opinions] == ["groq", "nvidia", "groq"]  # master (gemini) excluded, round-robin
     assert all(o["ok"] and o["text"].endswith("opinion") and o["latency_ms"] >= 300 for o in opinions)
     assert elapsed < 0.75, f"three 0.3s calls took {elapsed:.2f}s: not parallel"
@@ -256,7 +256,7 @@ async def test_master_consults_specialists_through_the_turn_client(monkeypatch):
 
     assert result["provider"] == "groq" and result["reply"] == "The panel agrees clearance is needed."
     assert [(s["role"], s["provider"], s["ok"]) for s in result["specialists"]] == [
-        ("clinical_safety", "nvidia", True), ("medical_billing", "nvidia", True), ("patient_communication", "nvidia", True)]
+        ("clinical_safety", "nvidia", True), ("treatment_planning", "nvidia", True), ("patient_communication", "nvidia", True)]
     assert set(result["specialists"][0]) == {"role", "provider", "model", "latency_ms", "ok"}
     panel = result["widgets"][0]
     assert panel["type"] == "specialist_panel" and len(panel["data"]["opinions"]) == 3

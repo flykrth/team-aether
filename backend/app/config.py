@@ -70,6 +70,10 @@ try:
         # Scanned-PDF OCR: auto = NVIDIA Nemotron Parse when NVIDIA_API_KEY is set, else Gemini
         DOCUMENT_OCR_PROVIDER: str = "auto"
         NVIDIA_PARSE_MODEL: str = "nvidia/nemotron-parse"
+        # Coverage Recovery RAG: auto = Gemini embeddings when GEMINI_API_KEY is set, else NVIDIA, else lexical search only
+        EMBEDDING_PROVIDER: str = "auto"
+        GEMINI_EMBED_MODEL: str = "gemini-embedding-2"
+        NVIDIA_EMBED_MODEL: str = "nvidia/llama-nemotron-embed-1b-v2"
         GROQ_API_KEY: str = ""
         GROQ_MODEL: str = "openai/gpt-oss-120b"
         GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
@@ -143,6 +147,9 @@ except ImportError:
         GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
         DOCUMENT_OCR_PROVIDER: str = os.getenv("DOCUMENT_OCR_PROVIDER", "auto")
         NVIDIA_PARSE_MODEL: str = os.getenv("NVIDIA_PARSE_MODEL", "nvidia/nemotron-parse")
+        EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "auto")
+        GEMINI_EMBED_MODEL: str = os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-2")
+        NVIDIA_EMBED_MODEL: str = os.getenv("NVIDIA_EMBED_MODEL", "nvidia/llama-nemotron-embed-1b-v2")
         GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
         GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
         GROQ_BASE_URL: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")

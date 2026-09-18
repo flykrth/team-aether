@@ -10,6 +10,7 @@ from .clearance import router as clearance_router
 from .agents import router as agents_router
 from .assistant import router as assistant_router
 from .risk import router as risk_router
+from .coverage import router as coverage_router
 from .records import router as records_router
 from .carestack import router as carestack_legacy_router
 
@@ -28,6 +29,7 @@ __all__ = [
     "agents_router",
     "assistant_router",
     "risk_router",
+    "coverage_router",
     "records_router",
     "carestack_mock_router",
     "fhir_ehr_router",

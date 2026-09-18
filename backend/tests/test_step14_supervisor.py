@@ -38,8 +38,7 @@ async def test_high_risk_patient_routes_through_clearance():
     assert state["appointment"]["status"] == "REQUIRES_ACTION"
     assert state["assigned_medical_md"]["npi"]
     steps = [e["node"] for e in thread.events if e["type"] == "agent_step"]
-    assert steps[:2] == ["intake_agent", "risk_agent"]
-    assert sorted(steps[2:]) == ["billing_agent", "clearance_agent"]  # parallel branch, order not guaranteed
+    assert steps == ["intake_agent", "risk_agent", "clearance_agent"]
 
 
 @pytest.mark.anyio
@@ -77,7 +76,7 @@ def test_event_and_stream_endpoints():
             body = "".join(stream.iter_text())
         assert "event: thread_started" in body
         assert "event: thread_completed" in body
-        assert body.count("event: agent_step") == 4
+        assert body.count("event: agent_step") == 3
 
         state = client.get("/api/agents/state/pat-1").json()
         assert state["status"] == "COMPLETED"

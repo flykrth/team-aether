@@ -29,8 +29,6 @@ def _supervisor():
 
 def _summarize_state(thread) -> Dict[str, Any]:
     state = thread.state
-    claims = dict(state.get("commercial_claims") or {})
-    claims.pop("cms1500", None)
     protocol = {k: v for k, v in (state.get("clearance_protocol") or {}).items() if k != "clinical_justification"}
     records = state.get("medical_records") or {}
     return {
@@ -50,8 +48,6 @@ def _summarize_state(thread) -> Dict[str, Any]:
         "clearance_status": state.get("clearance_status"),
         "assigned_physician": state.get("assigned_medical_md"),
         "clearance_protocol": protocol,
-        "cross_bill_eligible": state.get("cross_bill_eligible"),
-        "commercial_claims": claims,
         "agent_log": [f"{l['agent_name']}: {l['action']}" for l in state.get("agent_logs") or []],
     }
 
@@ -172,6 +168,27 @@ async def consult_specialists(question: str, patient_id: str = "") -> Dict[str, 
     return await consult(question, patient_id or None)
 
 
+async def check_medical_coverage_pathway(patient_id: str, procedure: str, clinical_note: str = "", diagnosis: str = "") -> Dict[str, Any]:
+    """Read-only. The Dental Coverage Recovery pipeline: payer policy + member plan, every statement quoted and verified."""
+    from ..coverage import analyst
+
+    try:
+        result = await analyst.analyze({"patient_id": patient_id, "procedure": procedure, "clinical_note": clinical_note,
+                                        "diagnosis": diagnosis, "region": "US"})
+    except KeyError as exc:
+        return {"found": False, "message": str(exc).strip("'\"")}
+    return {
+        "patient_name": result["patient_name"], "dental_benefit": result["insurance"]["dental"]["status"],
+        "medical_insurer": result["insurance"]["medical"]["insurer"] or "not recorded",
+        "outcome": result["determination"]["outcome"], "headline": result["determination"]["headline"],
+        "reason": result["determination"]["reason"],
+        "policy_quotes": [{"kind": c["kind"], "met": c["met"], "quote": c["quote"][:300], "source": f"{c['source']['insurer']} - {c['source']['title']}",
+                           "url": c["source"]["url"]} for c in result.get("criteria", [])[:6]],
+        "missing_information": result.get("missing_information", []),
+        "note": "Only the payer decides coverage. A potential pathway means a pre-treatment estimate is worth requesting.",
+    }
+
+
 # -- action tools -------------------------------------------------------------------
 
 async def run_agent_workflow(patient_id: str, cdt_code: str) -> Dict[str, Any]:
@@ -224,9 +241,16 @@ TOOL_DECLARATIONS: List[Dict[str, Any]] = [
     _decl("list_patients", "List every patient in the CareStack practice with their planned procedures. Use to resolve a name to a patient_id."),
     _decl("get_patient_history", "Full patient history: demographics, medical conditions (ICD-10), medications (RxNorm), allergies, labs, dental treatment plan, documents, chart alerts and clearance requests.", {"patient_id": _PATIENT}),
     _decl("assess_clinical_risk", "Read-only systemic risk assessment of a dental procedure for a patient (hazard level, contraindications, recommendations). Writes nothing.", {"patient_id": _PATIENT, "cdt_code": _CDT}),
+    _decl("check_medical_coverage_pathway", "Read-only. When a patient's dental benefit cannot pay, checks whether the dental problem has a "
+          "legitimate MEDICAL-insurance pathway, from the payer's published policy and the member's plan document. Returns an outcome "
+          "(no_pathway / potential_pathway / needs_review / dental_active) with verbatim policy quotes. The only source you may use for "
+          "insurance coverage statements.",
+          {"patient_id": _PATIENT, "procedure": {"type": "string", "description": "Procedure in plain words or a CDT code"},
+           "clinical_note": {"type": "string", "description": "Clinical findings the user stated: diagnosis, imaging, symptoms, cause (trauma, infection...)"},
+           "diagnosis": {"type": "string"}}, required=["patient_id", "procedure"]),
     _decl("get_agent_state", "Current state of the multi-agent workflow for a patient: clearance status, physician, restrictions, billing claim, agent log.", {"patient_id": _PATIENT}),
-    _decl("consult_specialists", "Ask the parallel specialist panel (clinical-safety reviewer, medical-billing reviewer, patient-communication drafter; each a different model/provider) for second opinions. They see the compact patient history but have no tools and take no actions. Returns their opinions for you to synthesize.", {"question": {"type": "string", "description": "The self-contained question or situation to review, including the procedure if relevant"}, "patient_id": _PATIENT}, required=["question"]),
-    _decl("run_agent_workflow", "ACTION. Run the four MAO agents (intake, risk, clearance, billing) for a patient and procedure. May post a chart alert, dispatch a clearance request to the physician and upload a Letter of Medical Necessity.", {"patient_id": _PATIENT, "cdt_code": _CDT}),
+    _decl("consult_specialists", "Ask the parallel specialist panel (clinical-safety reviewer, treatment-planning reviewer, patient-communication drafter; each a different model/provider) for second opinions. They see the compact patient history but have no tools and take no actions. Returns their opinions for you to synthesize.", {"question": {"type": "string", "description": "The self-contained question or situation to review, including the procedure if relevant"}, "patient_id": _PATIENT}, required=["question"]),
+    _decl("run_agent_workflow", "ACTION. Run the MAO agents (intake, risk, physician clearance) for a patient and procedure. May post a chart alert, dispatch a clearance request to the physician and upload a Letter of Medical Necessity.", {"patient_id": _PATIENT, "cdt_code": _CDT}),
     _decl("submit_physician_reply", "ACTION. File the physician's free-text reply to a pending clearance request; extracts restrictions and clears the appointment if approved.", {"patient_id": _PATIENT, "reply_text": {"type": "string", "description": "The physician's reply, verbatim"}}),
     _decl("check_clearance_escalations", "ACTION. Escalate clearance requests unanswered for more than 48 hours (patient nudge SMS + front-desk flag).", {"hours_since_dispatch": {"type": "number", "description": "Override elapsed hours for a demo; 0 uses real elapsed time"}}, required=[]),
     _decl("post_chart_alert", "ACTION. Post a medical alert to the patient's CareStack chart.", {"patient_id": _PATIENT, "title": {"type": "string"}, "details": {"type": "string"}}),
@@ -236,7 +260,7 @@ TOOL_DECLARATIONS: List[Dict[str, Any]] = [
 
 TOOL_FUNCTIONS: Dict[str, Callable[..., Awaitable[Dict[str, Any]]]] = {
     f.__name__: f
-    for f in (list_patients, get_patient_history, assess_clinical_risk, get_agent_state, consult_specialists,
+    for f in (list_patients, get_patient_history, assess_clinical_risk, check_medical_coverage_pathway, get_agent_state, consult_specialists,
               run_agent_workflow, submit_physician_reply, check_clearance_escalations, post_chart_alert)
 }
 TOOL_FUNCTIONS.update(RECORD_TOOL_FUNCTIONS)

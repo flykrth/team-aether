@@ -64,17 +64,33 @@ and the default one would put her in anaphylaxis. Two separate facts on two line
 - Replace it with `Started apixabn last week. Denies diabetes.`: it fixes "apixabn", adds apixaban to her
   chart with a **Remove from chart** undo, and does **not** add diabetes because she denied it.
 
-## Act 4: The agents do the paperwork (1.5 min)
+## Act 4: Coverage recovery, the tool that tells you when NOT to bill (2 min)
 
-Open **Agent ops**, keep *Robert Chen*, click **Book appointment**.
+Manual → **Coverage recovery**. Pick a patient, set *Dental benefit* to **Annual maximum used up**, *Medical insurer*
+**Aetna**, *Plan type* **PPO**.
 
-1. Four agents light up in turn; the schedule tile turns **yellow** (on hold).
-2. Click **Send physician reply** (Dr. Vance's text is prefilled). The reply is parsed into
-   *Limit epinephrine 2 carpules* and *Maintain aspirin*, and the tile turns **green**.
-3. Point at the billing panel: CPT 41899, CMS-1500 ready, letter of medical necessity attached.
+1. **A genuine medical indication.** Procedure `D7240 removal of completely bony impacted third molar`, diagnosis
+   `impacted mandibular third molar K01.1`, note:
+   `Completely bony impacted lower right third molar on panoramic radiograph. Recurrent pericoronitis with facial swelling, three episodes this year. No trauma.`
+   → the decision path lights up step by step, then **Potential medical pathway · plan not verified**, with Aetna's
+   sentence, the policy name, its review date and a link. Type a reviewer name → it files a *pre-treatment estimate
+   request* ("not a claim").
+2. **Routine care.** Procedure `porcelain crown on tooth 30`, note `Fractured cusp, needs a full coverage crown.`
+   → **No medical pathway**, quoting Aetna's exclusion of "root canals, fillings, crowns, bridges".
+3. **The trap.** Procedure `surgical extraction of tooth 19`, note
+   `Non-restorable tooth 19. Patient had a coronary stent placed 8 months ago and takes clopidogrel and aspirin.`
+   → **No medical pathway.** A risky medical history is not a medical indication.
+4. **Trauma.** Procedure `open reduction of mandibular fracture`, note
+   `Patient was assaulted two days ago. CT shows a displaced fracture of the mandibular body.`
+   → potential pathway: "Reduction of any facial bone fractures is covered under all Aetna medical plans."
+5. Scroll to **Policy library**: 12 published policies, each with its review date and how old our copy is. Press
+   **Refresh sources**. Switch *Region* to United Kingdom: "not supported yet", no guess.
 
-**Say:** "Clearance normally takes days of phone and fax. Nobody at the front desk touched this."
-Be honest if asked: the physician side and CareStack are simulated, and the $1,200 is a demo estimate.
+**Say:** "Nothing about coverage is written into this app. It downloads the insurers' published policies, and every
+sentence you see is quoted and checked against the source. If the AI says something it cannot back up, the server
+throws it away and tells you. It never says 'covered', it never picks a billing code, and it never invents a dollar
+figure. An earlier version of this project did claim a stent could justify medical billing. We deleted it, because
+the insurer's own policy says otherwise."
 
 ## Act 5: The agent can change anything, but only when told (1 min)
 
@@ -99,7 +115,8 @@ under a patient it guessed, so the server now refuses unless the user asks and n
 - `Summarize Margaret Ellis's medical history`
 - `Who is scheduled for surgery and needs medical clearance?`
 - `Compare the bleeding risk of John Doe and Robert Chen for an extraction`
-- `What did Dr. Vance say about Robert Chen?` (after Act 4)
+- `What did Dr. Vance say about Robert Chen?` (after running the agents and filing the reply)
+- `Her dental maximum is used up. Is there a medical pathway for Margaret Ellis's extraction?`
 
 **Do**
 - `Run the agents for Robert Chen, D7210`
@@ -122,8 +139,9 @@ under a patient it guessed, so the server now refuses unless the user asks and n
 | Where do the literature quotes come from? | Europe PMC's public API: peer-reviewed reviews and guidelines. Verbatim sentences with links. Nothing is generated. |
 | What if the AI provider is down? | Transient errors retry; the master fails over to another provider; extraction and risk check fall back to rules alone. |
 | Is this HIPAA compliant? | All data here is synthetic. Real use needs a BAA with each AI provider; PDFs with a text layer are read locally and never leave the machine. |
-| What is simulated? | CareStack, the hospital EHR and the physician inbox are simulators. The billing rule that lets a stent justify CPT 41899 is a demo heuristic. |
-| How is it tested? | 315 backend tests, including the safety gates and regressions for bugs found in live testing. |
+| What is simulated? | CareStack, the hospital EHR and the physician inbox are simulators. Dental benefit status is entered by staff (no live eligibility feed). The payer policies are the real published documents. |
+| Doesn't this help bill medical for dental work? | The opposite. Routine care and "risky patient" cases come back "No medical pathway" with the payer's own words. It only finds pathways the payer itself describes, and then asks for a pre-treatment estimate. |
+| How is it tested? | 332 backend tests, including the safety gates and regressions for bugs found in live testing. |
 
 ## Reset between demos
 

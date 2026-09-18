@@ -15,7 +15,7 @@ import httpx
 
 from ..models.agent_state import create_initial_state
 from . import evidence
-from .agents import ClinicalRiskAgent, CommercialBillingAgent, IntakeAgent
+from .agents import ClinicalRiskAgent, IntakeAgent
 from .agents.base import is_invasive
 from .agents.intake_agent import _drug_class
 
@@ -140,14 +140,6 @@ async def check(
         for f in evaluation["findings"]
     ]
 
-    billing = None
-    try:
-        match = CommercialBillingAgent().evaluate_cross_billing(state, cdt_code)
-        if match:
-            billing = {k: match.get(k) for k in ("cpt_code", "justifying_icd10", "estimated_savings", "source")}
-    except Exception:
-        billing = None
-
     owns_client = client is None
     client = client or httpx.AsyncClient(timeout=30.0, headers={"User-Agent": "MDIN-risk-check/0.1 (hackathon demo)"})
     try:
@@ -201,5 +193,4 @@ async def check(
         "suggested_removals": suggested_removals,
         "findings": findings,
         "second_look": second_look,
-        "billing": billing,
     }

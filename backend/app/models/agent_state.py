@@ -2,7 +2,7 @@
 Shared agent state schema for MDIN Step 14: CareStack Multi-Agent Orchestrator (MAO).
 
 `MAOState` is the LangGraph channel schema handed between the Intake, Risk, Clearance and
-Commercial Billing agent nodes. `MAOStateModel` is the Pydantic mirror used to validate a
+Clearance agent nodes. `MAOStateModel` is the Pydantic mirror used to validate a
 state dictionary at the boundaries (initialization and API serialization).
 """
 
@@ -73,16 +73,6 @@ class ClearanceProtocol(BaseModel):
     signed_by: str = ""
 
 
-class CommercialClaims(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    suggested_cpt: str = ""
-    justifying_icd10: List[str] = Field(default_factory=list)
-    estimated_savings: float = 0.0
-    cms1500_ready: bool = False
-    lomn_attached: bool = False
-
-
 class AgentLogEntry(BaseModel):
     timestamp: str
     agent_name: str
@@ -104,8 +94,6 @@ class MAOStateModel(BaseModel):
     clearance_status: ClearanceState = "NOT_REQUIRED"
     assigned_medical_md: AssignedMedicalMD = Field(default_factory=AssignedMedicalMD)
     clearance_protocol: ClearanceProtocol = Field(default_factory=ClearanceProtocol)
-    cross_bill_eligible: bool = False
-    commercial_claims: CommercialClaims = Field(default_factory=CommercialClaims)
     agent_logs: List[AgentLogEntry] = Field(default_factory=list)
     # Optional demo inputs: intake_narrative, hours_since_dispatch, physician_response
     simulation: Dict[str, Any] = Field(default_factory=dict)
@@ -132,8 +120,6 @@ class MAOState(TypedDict, total=False):
     clearance_status: str
     assigned_medical_md: Dict[str, Any]
     clearance_protocol: Dict[str, Any]
-    cross_bill_eligible: bool
-    commercial_claims: Dict[str, Any]
     agent_logs: Annotated[List[Dict[str, Any]], operator.add]
     simulation: Dict[str, Any]
 

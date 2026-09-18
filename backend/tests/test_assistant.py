@@ -62,7 +62,7 @@ async def test_risk_assessment_is_read_only():
 async def test_action_tools_drive_the_workflow():
     run = await tools.execute_tool("run_agent_workflow", {"patient_id": "CS-9921", "cdt_code": "D7210"})
     assert run["clearance_status"] == "TRANSMITTED_TO_EHR"
-    assert "cms1500" not in run["commercial_claims"] and run["commercial_claims"]["estimated_savings"] == 1200.0
+    assert "commercial_claims" not in run and "cross_bill_eligible" not in run  # the billing path is gone
     reply = await tools.execute_tool("submit_physician_reply", {"patient_id": "CS-9921", "reply_text": "Cleared, maintain aspirin."})
     assert reply["appointment"]["status"] == "CLEARED_FOR_CARE"
     again = await tools.execute_tool("submit_physician_reply", {"patient_id": "CS-9921", "reply_text": "Cleared."})
@@ -130,7 +130,7 @@ def test_endpoints_without_key():
     with TestClient(app) as client:
         status = client.get("/api/assistant/status").json()
         assert status["configured"] is False and status["provider"] is None
-        assert len(status["tools"]) == len(tools.TOOL_DECLARATIONS) == 17
+        assert len(status["tools"]) == len(tools.TOOL_DECLARATIONS) == 18
         resp = client.post("/api/assistant/chat", json={"messages": [{"role": "user", "content": "hi"}]})
         assert resp.status_code == 503 and "GEMINI_API_KEY" in resp.json()["detail"]
 

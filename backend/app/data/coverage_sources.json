@@ -1,0 +1,22 @@
+{
+  "_comment": "Registry of published payer policy documents. URLs ONLY: no coverage rules, criteria or codes are authored here. Everything the Coverage Recovery Agent says about coverage is quoted from the fetched documents. Add a source by adding its URL; remove one by deleting it.",
+  "regions": {
+    "US": {"label": "United States", "supported": true},
+    "UK": {"label": "United Kingdom", "supported": false, "note": "NHS / private dental / private medical routing is structurally different and is not implemented yet."},
+    "AU": {"label": "Australia", "supported": false, "note": "Medicare / hospital cover / extras cover routing is not implemented yet."}
+  },
+  "sources": [
+    {"id": "aetna-cpb-0082", "region": "US", "insurer": "Aetna", "title": "CPB 0082 - Dental Services and Oral and Maxillofacial Surgery: Coverage Under Medical Plans", "kind": "html", "url": "https://www.aetna.com/cpb/medical/data/1_99/0082.html"},
+    {"id": "aetna-cpb-0028", "region": "US", "insurer": "Aetna", "title": "CPB 0028 - Temporomandibular Disorders", "kind": "html", "url": "https://www.aetna.com/cpb/medical/data/1_99/0028.html"},
+    {"id": "aetna-cpb-0095", "region": "US", "insurer": "Aetna", "title": "CPB 0095 - Orthognathic Surgery", "kind": "html", "url": "https://www.aetna.com/cpb/medical/data/1_99/0095.html"},
+    {"id": "aetna-cpb-0004", "region": "US", "insurer": "Aetna", "title": "CPB 0004 - Obstructive Sleep Apnea in Adults", "kind": "html", "url": "https://www.aetna.com/cpb/medical/data/1_99/0004.html"},
+    {"id": "cigna-0156-tmj", "region": "US", "insurer": "Cigna", "title": "Medical Coverage Policy 0156 - Temporomandibular Joint (TMJ) Disorder Surgery", "kind": "pdf", "url": "https://static.cigna.com/assets/chcp/pdf/coveragePolicies/medical/mm_0156_coveragepositioncriteria_tmj_disorder_surgery.pdf"},
+    {"id": "cigna-0209-orthognathic", "region": "US", "insurer": "Cigna", "title": "Medical Coverage Policy 0209 - Orthognathic Surgery", "kind": "pdf", "url": "https://static.cigna.com/assets/chcp/pdf/coveragePolicies/medical/mm_0209_coveragepositioncriteria_orthognathic_surgery.pdf"},
+    {"id": "uhc-tmj", "region": "US", "insurer": "UnitedHealthcare", "title": "Commercial Medical Policy - Temporomandibular Joint Disorders", "kind": "pdf", "url": "https://www.uhcprovider.com/content/dam/provider/docs/public/policies/comm-medical-drug/temporomandibular-joint-disorders.pdf"},
+    {"id": "uhc-orthognathic", "region": "US", "insurer": "UnitedHealthcare", "title": "Commercial Medical Policy - Orthognathic (Jaw) Surgery", "kind": "pdf", "url": "https://www.uhcprovider.com/content/dam/provider/docs/public/policies/comm-medical-drug/orthognathic-jaw-surgery.pdf"},
+    {"id": "uhc-osa", "region": "US", "insurer": "UnitedHealthcare", "title": "Commercial Medical Policy - Obstructive and Central Sleep Apnea Treatment", "kind": "pdf", "url": "https://www.uhcprovider.com/content/dam/provider/docs/public/policies/comm-medical-drug/obstructive-sleep-apnea-treatment.pdf"},
+    {"id": "bcbsnc-dental-reconstructive", "region": "US", "insurer": "Blue Cross NC", "title": "Corporate Medical Policy - Dental Reconstructive Services", "kind": "html", "url": "https://www.bluecrossnc.com/providers/policies-guidelines-codes/commercial/surgery/updates/dental-reconstructive-services"},
+    {"id": "excellus-dental-oral-care", "region": "US", "insurer": "Excellus BCBS", "title": "Medical Policy - Dental and Oral Care under Medical Plans", "kind": "pdf", "url": "https://www.excellusbcbs.com/documents/d/global/exc-prv-dental-and-oral-care-under-medical-plans"},
+    {"id": "cms-medicare-dental", "region": "US", "insurer": "Medicare", "title": "CMS - Medicare Dental Coverage (services inextricably linked to covered medical services)", "kind": "html", "url": "https://www.cms.gov/medicare/coverage/dental"}
+  ]
+}

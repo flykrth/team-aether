@@ -55,3 +55,6 @@ build/
 # Patients/history added at runtime through the Patient Records panel or the assistant
 backend/app/data/runtime_registry.json
 backend/app/data/runtime_registry.json.tmp
+
+# Cached payer policy documents (copyrighted; fetched locally, never committed)
+backend/app/data/policy_cache/

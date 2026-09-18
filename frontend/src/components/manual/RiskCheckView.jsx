@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ShieldAlert, Loader2, Quote, ExternalLink, Sparkles, Check, Stethoscope, Receipt, Undo2, SpellCheck, HelpCircle, Trash2 } from 'lucide-react';
+import { ShieldAlert, Loader2, Quote, ExternalLink, Sparkles, Check, Stethoscope, Undo2, SpellCheck, HelpCircle, Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
 import { toApiEntries } from './RecordImporter';
 import { VoiceButton } from './VoiceButton';
@@ -316,20 +316,10 @@ export function RiskCheckView({ initialPatientId, onChartChanged }) {
               {result.physician_clearance_required && (
                 <div className="flex gap-3">
                   <Stethoscope className="w-4 h-4 text-text-muted mt-0.5 shrink-0" strokeWidth={1.5} />
-                  <p className="text-sm text-text-main">Clearance is required. Agent ops can request it from the treating physician and track the reply.</p>
+                  <p className="text-sm text-text-main">Clearance is required. Ask the assistant to run the agents: it requests clearance from the treating physician and tracks the reply.</p>
                 </div>
               )}
-              {result.billing ? (
-                <div className="flex gap-3">
-                  <Receipt className="w-4 h-4 text-text-muted mt-0.5 shrink-0" strokeWidth={1.5} />
-                  <p className="text-sm text-text-main">
-                    May be billable to medical: CPT {result.billing.cpt_code} on {result.billing.justifying_icd10.join(', ')},
-                    about ${Number(result.billing.estimated_savings).toLocaleString()} of the dental maximum preserved (demo estimate).
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-text-muted">No medical cross-billing opportunity for this procedure.</p>
-              )}
+              <p className="text-sm text-text-muted">Insurance questions are answered in Coverage recovery, from the payer's published policy. A risky medical history is not a reason to bill medical.</p>
             </div>
           </div>
         </div>

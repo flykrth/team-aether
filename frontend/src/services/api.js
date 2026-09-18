@@ -47,6 +47,31 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  // Dental Coverage Recovery
+  getCoverageSources: (region = 'US') => fetchJson(`/api/coverage/sources?region=${region}`),
+  refreshCoverageSources: (region = 'US') => fetchJson(`/api/coverage/sources/refresh?region=${region}`, { method: 'POST' }),
+  getInsurance: (patientId) => fetchJson(`/api/coverage/patients/${encodeURIComponent(patientId)}/insurance`),
+  setInsurance: (patientId, payload) =>
+    fetchJson(`/api/coverage/patients/${encodeURIComponent(patientId)}/insurance`, { method: 'PUT', body: JSON.stringify(payload) }),
+  uploadPlanDocument: async (patientId, file) => {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('title', file.name);
+    const res = await fetch(`${API_BASE}/api/coverage/patients/${encodeURIComponent(patientId)}/plan-document`, { method: 'POST', body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error(`HTTP ${res.status}`);
+      error.detail = typeof body?.detail === 'string' ? body.detail : undefined;
+      throw error;
+    }
+    return body;
+  },
+  removePlanDocument: (patientId) =>
+    fetchJson(`/api/coverage/patients/${encodeURIComponent(patientId)}/plan-document`, { method: 'DELETE' }),
+  analyzeCoverage: (payload) => fetchJson('/api/coverage/analyze', { method: 'POST', body: JSON.stringify(payload) }),
+  makeCoveragePacket: (patientId, reviewedBy) =>
+    fetchJson('/api/coverage/packet', { method: 'POST', body: JSON.stringify({ patient_id: patientId, reviewed_by: reviewedBy }) }),
+
   // Manual mode: editable chart, file ingestion, risk check
   getPatientChart: (patientId) => fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}/chart`),
   deleteRecordPatient: (patientId) => fetchJson(`/api/records/patients/${encodeURIComponent(patientId)}`, { method: 'DELETE' }),

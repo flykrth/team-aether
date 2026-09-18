@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Sparkles, SlidersHorizontal, Users, ShieldAlert, Bot, Hospital, Terminal } from 'lucide-react';
+import { Sparkles, SlidersHorizontal, Users, ShieldAlert, ShieldQuestion, Hospital, Terminal } from 'lucide-react';
 import { AssistantWorkspace } from './components/assistant/AssistantWorkspace';
 import { PatientIntakePanel } from './components/records/PatientIntakePanel';
 import { PatientsView } from './components/manual/PatientsView';
 import { RiskCheckView } from './components/manual/RiskCheckView';
-import { AgentOpsDashboard } from './components/AgentOpsDashboard';
+import { CoverageRecoveryView } from './components/coverage/CoverageRecoveryView';
 import { PhysicianClearancePortal } from './components/PhysicianClearancePortal';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { api } from './services/api';
@@ -12,7 +12,7 @@ import { api } from './services/api';
 const VIEWS = [
   { id: 'patients', label: 'Patients', Icon: Users },
   { id: 'risk', label: 'Risk check', Icon: ShieldAlert },
-  { id: 'agents', label: 'Agent ops', Icon: Bot },
+  { id: 'coverage', label: 'Coverage recovery', Icon: ShieldQuestion },
   { id: 'physician', label: 'Physician portal', Icon: Hospital },
 ];
 
@@ -45,7 +45,7 @@ const Wordmark = () => (
 
 export function App() {
   const [mode, setMode] = useState(() => remember('mdin.mode', 'agentic'));
-  const [view, setView] = useState(() => remember('mdin.view', 'patients'));
+  const [view, setView] = useState(() => { const v = remember('mdin.view', 'patients'); return v === 'agents' ? 'coverage' : v; });
   const [riskPatientId, setRiskPatientId] = useState(null);
   const [patients, setPatients] = useState([]);       // CareStack-shaped, for the physician portal + intake panel
   const [refreshKey, setRefreshKey] = useState(0);
@@ -135,7 +135,7 @@ export function App() {
           <main className="pb-10">
             {view === 'patients' && <PatientsView refreshKey={refreshKey} onCheckRisk={(id) => { setRiskPatientId(id); changeView('risk'); }} />}
             {view === 'risk' && <RiskCheckView initialPatientId={riskPatientId} onChartChanged={patientsChanged} />}
-            {view === 'agents' && <AgentOpsDashboard />}
+            {view === 'coverage' && <CoverageRecoveryView initialPatientId={riskPatientId} />}
             {view === 'physician' && (
               <PhysicianClearancePortal patient={patients[0]} onClearanceUpdated={patientsChanged} onSwitchToDentalView={() => changeView('patients')} />
             )}
