@@ -51,20 +51,20 @@ export function EndpointTester() {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-      <div className="pb-5 border-b border-slate-100 mb-5">
-        <h3 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <Code className="w-5 h-5 text-sky-600" />
+    <div className="bg-app-surface rounded-lg border border-app-border p-5 shadow-xs">
+      <div className="pb-4 border-b border-app-border mb-4">
+        <h3 className="text-base font-bold text-text-main tracking-tight flex items-center gap-2">
+          <Code className="w-4 h-4 text-teal-500" />
           <span>Interactive Interoperability Endpoint Tester</span>
         </h3>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-text-secondary mt-0.5">
           Execute live requests against the FastAPI backend endpoints (/api/carestack, /api/fhir, /cds-services).
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Endpoint Selector List */}
-        <div className="lg:col-span-4 space-y-2">
+        <div className="lg:col-span-4 space-y-1.5">
           {ENDPOINTS.map((ep) => {
             const isSelected = selectedEndpoint.id === ep.id;
             return (
@@ -74,21 +74,21 @@ export function EndpointTester() {
                   setSelectedEndpoint(ep);
                   handleRun(ep);
                 }}
-                className={`w-full text-left p-3 rounded-lg border transition-all text-xs flex items-center justify-between ${
+                className={`w-full text-left p-2.5 rounded border transition-all text-xs flex items-center justify-between ${
                   isSelected
-                    ? 'border-sky-500 bg-sky-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                    ? 'border-teal-500 bg-teal-50/50 shadow-xs'
+                    : 'border-app-border hover:border-text-muted bg-app-surface'
                 }`}
               >
                 <div>
-                  <div className="font-semibold text-slate-900">{ep.name}</div>
-                  <div className="text-[11px] font-mono text-slate-500 mt-0.5">{ep.path}</div>
+                  <div className="font-semibold text-text-main">{ep.name}</div>
+                  <div className="text-[10px] font-mono text-text-secondary mt-0.5">{ep.path}</div>
                 </div>
                 <span
-                  className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded ${
+                  className={`px-1.5 py-0.5 text-[9px] font-mono font-bold rounded ${
                     ep.method === 'GET'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-indigo-100 text-indigo-800'
+                      ? 'bg-teal-100 text-teal-800'
+                      : 'bg-info-light text-info-dark'
                   }`}
                 >
                   {ep.method}
@@ -100,11 +100,11 @@ export function EndpointTester() {
 
         {/* Live Payload Viewer */}
         <div className="lg:col-span-8">
-          <div className="bg-slate-900 rounded-xl overflow-hidden shadow-inner flex flex-col h-full min-h-[420px]">
+          <div className="bg-text-main rounded-lg overflow-hidden shadow-inner flex flex-col h-full min-h-[400px]">
             {/* Header bar */}
-            <div className="bg-slate-950 px-4 py-3 flex items-center justify-between border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs font-bold text-emerald-400">
+            <div className="bg-slate-900 px-4 py-2.5 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <span className="font-mono text-xs font-bold text-teal-400">
                   {selectedEndpoint.method}
                 </span>
                 <span className="font-mono text-xs text-slate-300">
@@ -112,17 +112,17 @@ export function EndpointTester() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 {duration !== null && (
-                  <span className="flex items-center gap-1 text-[11px] text-slate-400 font-mono">
-                    <Clock className="w-3 h-3" />
+                  <span className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
+                    <Clock className="w-3 h-3 text-teal-400" />
                     {duration}ms
                   </span>
                 )}
                 <button
                   onClick={() => handleRun()}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-teal-500 hover:bg-teal-700 text-white rounded text-xs font-semibold transition-colors disabled:opacity-50"
                 >
                   <Play className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
                   <span>Execute</span>
@@ -131,27 +131,27 @@ export function EndpointTester() {
             </div>
 
             {/* Code Output */}
-            <div className="p-4 flex-1 overflow-auto font-mono text-xs text-slate-200">
+            <div className="p-3.5 flex-1 overflow-auto font-mono text-xs text-slate-200">
               {loading && (
-                <div className="h-full flex items-center justify-center text-slate-500">
+                <div className="h-full flex items-center justify-center text-slate-400 text-xs">
                   Connecting to MDIN FastAPI node...
                 </div>
               )}
 
               {error && (
-                <div className="text-rose-400 bg-rose-950/40 p-4 rounded-lg border border-rose-800">
+                <div className="text-danger-dark bg-danger-light p-3 rounded border border-danger/30">
                   Error: {error}
                 </div>
               )}
 
               {result && !loading && (
-                <pre className="whitespace-pre-wrap leading-relaxed">
+                <pre className="whitespace-pre-wrap leading-relaxed text-[11px] text-teal-300">
                   {JSON.stringify(result, null, 2)}
                 </pre>
               )}
 
               {!result && !loading && !error && (
-                <div className="h-full flex items-center justify-center text-slate-500">
+                <div className="h-full flex items-center justify-center text-slate-400 text-xs">
                   Click 'Execute' or choose an endpoint on the left to inspect raw payload.
                 </div>
               )}
@@ -162,3 +162,4 @@ export function EndpointTester() {
     </div>
   );
 }
+

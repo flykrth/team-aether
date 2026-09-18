@@ -1,28 +1,33 @@
 import React, { useState } from 'react';
-import { AlertTriangle, ShieldCheck, Info, HeartPulse, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, Info, HeartPulse, CheckCircle2, Stethoscope, ArrowRight } from 'lucide-react';
 
 const INDICATOR_STYLES = {
   critical: {
-    wrapper: 'border-red-500 bg-red-50 text-red-900',
-    badge: 'bg-red-600 text-white animate-pulse',
+    wrapper: 'border-danger/30 bg-danger-light text-danger-dark',
+    badge: 'bg-danger text-white font-bold',
     icon: AlertTriangle,
-    label: 'CRITICAL HAZARD',
+    iconColor: 'text-danger',
+    label: 'CRITICAL CLINICAL HAZARD',
   },
   warning: {
-    wrapper: 'border-amber-500 bg-amber-50 text-amber-900',
-    badge: 'bg-amber-500 text-white',
+    wrapper: 'border-warning/40 bg-warning-light text-warning-dark',
+    badge: 'bg-warning text-white font-bold',
     icon: HeartPulse,
-    label: 'WARNING',
+    iconColor: 'text-warning-dark',
+    label: 'CLINICAL REVIEW REQUIRED',
   },
   info: {
-    wrapper: 'border-blue-500 bg-blue-50 text-blue-900',
-    badge: 'bg-blue-600 text-white',
+    wrapper: 'border-info/30 bg-info-light text-info-dark',
+    badge: 'bg-info text-white font-bold',
     icon: Info,
-    label: 'INFO',
+    iconColor: 'text-info',
+    label: 'CLINICAL INFORMATIONAL',
   },
 };
 
-/** Very small markdown-ish renderer: bold, bullet lists, and line breaks — enough for CDS `detail` text. */
+/**
+ * Very small markdown renderer for CDS detail text (supports bolding, bullet points, and line breaks).
+ */
 function renderDetailMarkdown(detail) {
   if (!detail) return null;
   const lines = detail.split('\n');
@@ -32,7 +37,7 @@ function renderDetailMarkdown(detail) {
     const content = isBullet ? trimmed.slice(2) : trimmed;
     const parts = content.split(/(\*\*[^*]+\*\*)/g).map((chunk, j) =>
       chunk.startsWith('**') && chunk.endsWith('**') ? (
-        <strong key={j} className="font-bold">
+        <strong key={j} className="font-semibold text-text-main">
           {chunk.slice(2, -2)}
         </strong>
       ) : (
@@ -40,25 +45,23 @@ function renderDetailMarkdown(detail) {
       )
     );
 
-    if (!trimmed) return <div key={i} className="h-2" />;
+    if (!trimmed) return <div key={i} className="h-1.5" />;
 
     return isBullet ? (
-      <div key={i} className="flex gap-2 pl-1">
-        <span aria-hidden="true">•</span>
+      <div key={i} className="flex gap-2 pl-1 text-xs text-text-main leading-relaxed">
+        <span aria-hidden="true" className="text-text-muted">•</span>
         <span>{parts}</span>
       </div>
     ) : (
-      <p key={i}>{parts}</p>
+      <p key={i} className="text-xs text-text-main leading-relaxed">{parts}</p>
     );
   });
 }
 
 /**
- * Renders a single CDS Hooks v1.0 Card (summary/indicator/detail/source/suggestions)
- * with the two canonical MDIN chairside actions: appending the alert to the CareStack
- * chart, and requesting a pre-op coagulation (INR) consult.
+ * Enterprise CareStack CDS Hooks v1.0 Decision Card Component
  */
-export function CDSHookCard({ card, onAppendAlert, onRequestConsult }) {
+export function CDSHookCard({ card, onAppendAlert, onRequestConsult, onViewEvidence }) {
   const [appending, setAppending] = useState(false);
   const [appended, setAppended] = useState(false);
   const [requestingConsult, setRequestingConsult] = useState(false);
@@ -90,52 +93,72 @@ export function CDSHookCard({ card, onAppendAlert, onRequestConsult }) {
   };
 
   return (
-    <div className={`rounded-xl border-2 p-5 shadow-sm mb-4 ${style.wrapper}`}>
+    <div className={`rounded-lg border p-4 mb-3 bg-app-surface shadow-xs transition-all ${style.wrapper}`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <Icon className="w-5 h-5 mt-0.5 shrink-0" />
-          <h3 className="font-bold text-base leading-tight">{card.summary}</h3>
+        <div className="flex items-start gap-2.5">
+          <div className="mt-0.5 shrink-0">
+            <Icon className={`w-4 h-4 ${style.iconColor}`} />
+          </div>
+          <div>
+            <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-1 ${style.badge}`}>
+              {style.label}
+            </span>
+            <h3 className="font-semibold text-sm text-text-main leading-snug">{card.summary}</h3>
+          </div>
         </div>
-        <span
-          className={`shrink-0 text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 rounded ${style.badge}`}
-        >
-          {style.label}
-        </span>
       </div>
 
       {card.detail && (
-        <div className="mt-3 text-sm leading-relaxed space-y-1">{renderDetailMarkdown(card.detail)}</div>
-      )}
-
-      {card.source && (
-        <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-semibold bg-white/70 border border-current/20 px-2 py-1 rounded">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>Verified by {card.source.label}</span>
+        <div className="mt-2.5 pt-2.5 border-t border-app-border/60 space-y-1">
+          {renderDetailMarkdown(card.detail)}
         </div>
       )}
 
-      <div className="mt-4 pt-3 border-t border-current/20 flex flex-wrap gap-2">
+      {/* Verified Source Attribution */}
+      {card.source && (
+        <div className="mt-3 flex items-center justify-between text-[11px] text-text-secondary bg-app-bg px-2.5 py-1.5 rounded border border-app-border">
+          <span className="flex items-center gap-1.5 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+            <span>Source: <strong className="text-text-main font-semibold">{card.source.label}</strong></span>
+          </span>
+          <span className="text-[10px] text-text-muted font-mono">HL7 FHIR R4 Engine</span>
+        </div>
+      )}
+
+      {/* Clinical Workflow Action Buttons */}
+      <div className="mt-3 pt-2.5 border-t border-app-border flex flex-wrap items-center gap-2">
+        {onViewEvidence && (
+          <button
+            onClick={() => onViewEvidence(card)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-app-bg text-text-main border border-app-border hover:bg-app-secondary transition-colors"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+            <span>View Evidence</span>
+          </button>
+        )}
         <button
           onClick={handleAppendAlert}
           disabled={appending || appended || !onAppendAlert}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-teal-500 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-xs"
         >
           {appended ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
-          {appended ? 'Appended to CareStack Chart' : appending ? 'Appending…' : 'Append Medical Alert to CareStack Chart'}
+          {appended ? 'Medical Alert Appended to Chart' : appending ? 'Appending…' : 'Post Medical Alert to CareStack Chart'}
         </button>
         <button
           onClick={handleRequestConsult}
           disabled={requestingConsult || consultRequested || !onRequestConsult}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-900 border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded bg-white text-text-main border border-app-border hover:bg-app-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {consultRequested ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
+          {consultRequested ? <CheckCircle2 className="w-3.5 h-3.5 text-success" /> : <Stethoscope className="w-3.5 h-3.5 text-info" />}
           {consultRequested
-            ? 'Consult Requested'
+            ? 'Physician Consult Requested'
             : requestingConsult
             ? 'Requesting…'
-            : 'Request Pre-Op Coagulation Consult (INR)'}
+            : 'Request Physician Consult (INR)'}
         </button>
       </div>
     </div>
   );
 }
+
+
