@@ -7,6 +7,7 @@ from .fhir import router as fhir_router
 from .cds_services import router as cds_router
 from .billing import router as billing_router
 from .clearance import router as clearance_router
+from .agents import router as agents_router
 from .carestack import router as carestack_legacy_router
 
 # Active routers for MDIN
@@ -21,6 +22,7 @@ __all__ = [
     "cds_router",
     "billing_router",
     "clearance_router",
+    "agents_router",
     "carestack_mock_router",
     "fhir_ehr_router",
     "fhir_ehr_mock_router",

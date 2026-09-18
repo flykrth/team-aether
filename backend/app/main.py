@@ -3,13 +3,25 @@ FastAPI application entrypoint for the Medical-Dental Interoperability Node (MDI
 Configures CORS for frontend access (ports 3000/5173) and mounts CareStack, FHIR, and CDS Hooks routers.
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 
 from .config import settings
-from .routers import carestack_router, fhir_router, cds_router, billing_router, clearance_router
+from .routers import carestack_router, fhir_router, cds_router, billing_router, clearance_router, agents_router
 from .services.carestack_client import describe_integration_mode
+from .services.agent_supervisor import agent_supervisor
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Run the MAO supervisor continuously in the background for the life of the process
+    await agent_supervisor.start()
+    yield
+    await agent_supervisor.stop()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -18,6 +30,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # Enable CORS for frontend clients (supporting ports 3000 and 5173)
@@ -38,6 +51,7 @@ app.include_router(fhir_router, prefix="/api/fhir", tags=["FHIR R4"])
 app.include_router(cds_router, prefix="/cds-services", tags=["CDS Hooks"])
 app.include_router(billing_router, prefix="/api/billing", tags=["Medical Cross-Coding & Billing"])
 app.include_router(clearance_router, prefix="/api/clearance", tags=["Medical Clearance Passport"])
+app.include_router(agents_router, prefix="/api/agents", tags=["Multi-Agent Orchestrator"])
 
 
 @app.get("/", tags=["System"])
@@ -63,6 +77,8 @@ async def root():
             "evaluate_claim": "/api/billing/evaluate-claim",
             "clearance_dispatch": "/api/clearance/dispatch",
             "clearance_patient": "/api/clearance/patient/{patient_id}",
+            "agents_status": "/api/agents/status",
+            "agents_stream": "/api/agents/stream/{patient_id}",
         },
     }
 
