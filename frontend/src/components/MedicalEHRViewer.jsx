@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Stethoscope, FileText, ArrowRightLeft, Pill, AlertTriangle, Loader2 } from 'lucide-react';
+import { Stethoscope, FileText, ArrowRightLeft, Pill, AlertTriangle, FlaskConical, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 
 function getCoding(resource, conceptKey) {
@@ -8,14 +8,15 @@ function getCoding(resource, conceptKey) {
 
 /**
  * Right-hand federated Medical EHR panel (Epic/Cerner via TEFCA/FHIR).
- * Shows the raw FHIR Condition / MedicationRequest / AllergyIntolerance resources
- * for the selected patient, with a toggle to visualize the live ConceptMap
+ * Shows the raw FHIR Condition / MedicationRequest / AllergyIntolerance / Observation
+ * resources for the selected patient, with a toggle to visualize the live ConceptMap
  * $translate transformation trace for each coded concept.
  */
 export function MedicalEHRViewer({ patient }) {
   const [conditions, setConditions] = useState([]);
   const [medications, setMedications] = useState([]);
   const [allergies, setAllergies] = useState([]);
+  const [observations, setObservations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showTrace, setShowTrace] = useState(false);
   const [trace, setTrace] = useState([]);
@@ -34,15 +35,17 @@ export function MedicalEHRViewer({ patient }) {
         const fhirPatient = await api.getFhirPatient(patient.mrn).catch(() => null);
         const fhirId = fhirPatient?.id || patient.mrn;
 
-        const [conds, meds, allgs] = await Promise.all([
+        const [conds, meds, allgs, obs] = await Promise.all([
           api.getFhirConditions(fhirId).catch(() => []),
           api.getFhirMedications(fhirId).catch(() => []),
           api.getFhirAllergies(fhirId).catch(() => []),
+          api.getFhirObservations(fhirId).catch(() => []),
         ]);
         if (cancelled) return;
         setConditions(conds);
         setMedications(meds);
         setAllergies(allgs);
+        setObservations(obs);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -122,14 +125,19 @@ export function MedicalEHRViewer({ patient }) {
         ) : showTrace ? (
           <TraceView trace={trace} loading={traceLoading} />
         ) : (
-          <RawFhirView conditions={conditions} medications={medications} allergies={allergies} />
+          <RawFhirView
+            conditions={conditions}
+            medications={medications}
+            allergies={allergies}
+            observations={observations}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function RawFhirView({ conditions, medications, allergies }) {
+function RawFhirView({ conditions, medications, allergies, observations }) {
   return (
     <div className="space-y-5">
       <ResourceSection
@@ -168,6 +176,26 @@ function RawFhirView({ conditions, medications, allergies }) {
             <div className="font-bold text-rose-900">{a.code?.text}</div>
             <CodingRow coding={getCoding(a, 'code')} />
             <div className="text-[10px] text-rose-700 mt-1 uppercase tracking-wide">Criticality: {a.criticality || 'high'}</div>
+          </>
+        )}
+      />
+      <ResourceSection
+        icon={FlaskConical}
+        colorClass="text-amber-600"
+        title="Observation"
+        items={observations}
+        renderItem={(o) => (
+          <>
+            <div className="flex items-start justify-between gap-2">
+              <div className="font-semibold text-slate-900">{o.code?.text}</div>
+              {o.valueQuantity && (
+                <span className="shrink-0 font-mono font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  {o.valueQuantity.value} {o.valueQuantity.unit}
+                </span>
+              )}
+            </div>
+            <CodingRow coding={getCoding(o, 'code')} />
+            <div className="text-[10px] text-slate-500 mt-1">Resulted: {o.effectiveDateTime || 'Undated'}</div>
           </>
         )}
       />

@@ -12,6 +12,18 @@ services:
       - PORT=8000
       - HOST=0.0.0.0
       - DEBUG=false
+      # CareStack integration. Defaults below run the bundled simulator; to target a
+      # real account, set these in a .env file beside this compose file (see
+      # backend/.env.example). Never commit real credentials.
+      - USE_LIVE_CARESTACK=${USE_LIVE_CARESTACK:-false}
+      - CARESTACK_BASE_URL=${CARESTACK_BASE_URL:-}
+      - CARESTACK_VENDOR_KEY=${CARESTACK_VENDOR_KEY:-}
+      - CARESTACK_ACCOUNT_KEY=${CARESTACK_ACCOUNT_KEY:-}
+      - CARESTACK_ACCOUNT_ID=${CARESTACK_ACCOUNT_ID:-}
+      - SIMULATOR_VENDOR_KEY=${SIMULATOR_VENDOR_KEY:-demo-vendor-key}
+      - SIMULATOR_ACCOUNT_KEY=${SIMULATOR_ACCOUNT_KEY:-demo-account-key}
+      - SIMULATOR_ACCOUNT_ID=${SIMULATOR_ACCOUNT_ID:-demo-account-001}
+      - FHIR_SERVER_URL=${FHIR_SERVER_URL:-https://hapi.fhir.org/baseR4}
     networks:
       - mdin-network
 
