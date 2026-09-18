@@ -61,7 +61,12 @@ from ..schemas.carestack import (
 
 from ..config import settings
 from ..services.carestack_client import get_carestack_client, describe_integration_mode
-from .fhir_ehr_mock import FHIR_STORE, _calculate_similarity, _normalize_ref_id
+from ..services.fhir_client import (
+    fhir_client,
+    calculate_similarity as _calculate_similarity,
+    normalize_ref_id as _normalize_ref_id,
+)
+FHIR_STORE = fhir_client._local_cache
 
 router = APIRouter()
 

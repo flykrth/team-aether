@@ -166,13 +166,13 @@ class CDSEngine:
             raw_obs = prefetch.get("observations") or prefetch.get("observation") or prefetch.get("Observation")
             observations = self._extract_resource_list(raw_obs)
 
-        # 2. Fallback to simulated FHIR EHR store if prefetch is missing or incomplete
-        from ..routers.fhir_ehr_mock import FHIR_STORE, _resolve_patient_aliases
+        # 2. Fallback to FHIR client store if prefetch is missing or incomplete
+        from .fhir_client import fhir_client, resolve_patient_aliases, normalize_ref_id
 
-        matching_keys = _resolve_patient_aliases(norm_patient_id) if norm_patient_id else []
+        matching_keys = resolve_patient_aliases(norm_patient_id) if norm_patient_id else []
 
         if not patient and norm_patient_id:
-            for p in FHIR_STORE["Patient"]:
+            for p in fhir_client._local_cache["Patient"]:
                 pid = p.get("id", "").lower()
                 mrns = [ident.get("value", "").lower() for ident in p.get("identifier", [])]
                 if any(k == pid or k in mrns or (k and k in pid) for k in matching_keys):
@@ -184,30 +184,30 @@ class CDSEngine:
         def _matches_subject(ref_str: str) -> bool:
             if not ref_str:
                 return False
-            clean = _normalize_ref_id(ref_str).lower()
+            clean = normalize_ref_id(ref_str).lower()
             return any(k == clean or (k and k in clean) or (clean and clean in k) for k in matching_keys)
 
         if not conditions and matching_keys:
             conditions = [
-                c for c in FHIR_STORE["Condition"]
+                c for c in fhir_client._local_cache["Condition"]
                 if _matches_subject(c.get("subject", {}).get("reference", ""))
             ]
 
         if not medications and matching_keys:
             medications = [
-                m for m in FHIR_STORE["MedicationRequest"]
+                m for m in fhir_client._local_cache["MedicationRequest"]
                 if _matches_subject(m.get("subject", {}).get("reference", ""))
             ]
 
         if not allergies and matching_keys:
             allergies = [
-                a for a in FHIR_STORE["AllergyIntolerance"]
+                a for a in fhir_client._local_cache["AllergyIntolerance"]
                 if _matches_subject(a.get("patient", {}).get("reference", ""))
             ]
 
         if not observations and matching_keys:
             observations = [
-                o for o in FHIR_STORE["Observation"]
+                o for o in fhir_client._local_cache["Observation"]
                 if _matches_subject(o.get("subject", {}).get("reference", ""))
             ]
 

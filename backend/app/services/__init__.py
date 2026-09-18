@@ -4,6 +4,7 @@ from .concept_map import terminology_engine, FHIRTerminologyEngine
 from .cds_engine import cds_engine, CDSEngine
 from .crosswalk_engine import crosswalk_engine, AdministrativeCrossCodingEngine
 from .document_generator import medical_necessity_generator, MedicalNecessityGenerator
+from .fhir_client import fhir_client, FHIRClient
 
 __all__ = [
     "terminology_engine",
@@ -14,5 +15,7 @@ __all__ = [
     "AdministrativeCrossCodingEngine",
     "medical_necessity_generator",
     "MedicalNecessityGenerator",
+    "fhir_client",
+    "FHIRClient",
 ]
 

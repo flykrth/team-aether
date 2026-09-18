@@ -1,202 +1,227 @@
 """
-FHIR R4 standard router mounted at /api/fhir.
-Provides standard RESTful healthcare data access for Patient, Condition, Observation, and AllergyIntolerance.
+HL7 FHIR R4 Standards Router mounted at /api/fhir.
+Proxies and interacts with official HL7 Public Test Servers:
+- HAPI FHIR Reference Server: https://hapi.fhir.org/baseR4
+- NLM HAPI FHIR Server: https://lforms-fhir.nlm.nih.gov/baseR4
+Reference: https://confluence.hl7.org/spaces/FHIR/pages/35718859/Public+Test+Servers
 """
 
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, Query
-from ..schemas.fhir import (
-    FHIRPatient,
-    FHIRCondition,
-    FHIRObservation,
-    FHIRAllergyIntolerance,
-    FHIRCapabilityStatement,
-    FHIRCodeableConcept,
-    FHIRCoding,
+from typing import List, Optional, Dict, Any, Union
+from datetime import datetime, timezone
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+
+from ..models.fhir import (
+    Coding,
+    CodeableConcept,
+    Reference,
+    Identifier,
+    HumanName,
+    Patient,
+    Condition,
+    MedicationRequest,
+    AllergyIntolerance,
+    Observation,
+    Bundle,
+    BundleEntry,
+    BundleEntrySearch,
+    CapabilityStatement,
+)
+from ..services.concept_map import terminology_engine
+from ..services.fhir_client import (
+    fhir_client,
+    normalize_ref_id,
+    resolve_patient_aliases,
+    calculate_similarity,
 )
 
 router = APIRouter()
 
-# Mock FHIR database aligned with CareStack MRNs for medical-dental correlation
-MOCK_FHIR_PATIENTS: List[FHIRPatient] = [
-    FHIRPatient(
-        id="EHR-88201",
-        name=[{"family": "Vance", "given": ["Eleanor"], "use": "official"}],
-        gender="female",
-        birthDate="1968-04-12",
-        telecom=[{"system": "phone", "value": "555-0192"}],
-    ),
-    FHIRPatient(
-        id="EHR-54109",
-        name=[{"family": "Chen", "given": ["Marcus"], "use": "official"}],
-        gender="male",
-        birthDate="1982-11-03",
-        telecom=[{"system": "phone", "value": "555-0143"}],
-    ),
-    FHIRPatient(
-        id="EHR-99342",
-        name=[{"family": "Taylor", "given": ["Robert"], "use": "official"}],
-        gender="male",
-        birthDate="1955-08-27",
-        telecom=[{"system": "phone", "value": "555-0188"}],
-    ),
-]
 
-MOCK_FHIR_CONDITIONS: List[FHIRCondition] = [
-    # Eleanor Vance has Osteoporosis treated with Bisphosphonates (MRONJ risk for dental extractions)
-    FHIRCondition(
-        id="COND-101",
-        clinicalStatus={"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
-        code=FHIRCodeableConcept(
-            coding=[
-                {"system": "http://snomed.info/sct", "code": "64859006", "display": "Osteoporosis"},
-                {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "M81.0", "display": "Age-related osteoporosis without current pathological fracture"},
-            ],
-            text="Osteoporosis on IV Bisphosphonate Therapy (Zoledronic Acid)",
-        ),
-        subject={"reference": "Patient/EHR-88201", "display": "Eleanor Vance"},
-        onsetDateTime="2022-03-15",
-    ),
-    # Robert Taylor has Artificial Heart Valve & Atrial Fibrillation (Infective Endocarditis & Bleeding risk)
-    FHIRCondition(
-        id="COND-102",
-        clinicalStatus={"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
-        code=FHIRCodeableConcept(
-            coding=[
-                {"system": "http://snomed.info/sct", "code": "49601007", "display": "Disorder of cardiovascular system"},
-                {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "Z95.2", "display": "Presence of prosthetic heart valve"},
-            ],
-            text="Mechanical Heart Valve (Requires Antibiotic Prophylaxis)",
-        ),
-        subject={"reference": "Patient/EHR-99342", "display": "Robert Taylor"},
-        onsetDateTime="2018-06-20",
-    ),
-    # Marcus Chen has Type 2 Diabetes Mellitus
-    FHIRCondition(
-        id="COND-103",
-        clinicalStatus={"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
-        code=FHIRCodeableConcept(
-            coding=[
-                {"system": "http://snomed.info/sct", "code": "44054006", "display": "Type 2 diabetes mellitus"},
-                {"system": "http://hl7.org/fhir/sid/icd-10-cm", "code": "E11.9", "display": "Type 2 diabetes mellitus without complications"},
-            ],
-            text="Type 2 Diabetes Mellitus",
-        ),
-        subject={"reference": "Patient/EHR-54109", "display": "Marcus Chen"},
-        onsetDateTime="2020-01-10",
-    ),
-]
-
-MOCK_FHIR_OBSERVATIONS: List[FHIRObservation] = [
-    # Marcus Chen HbA1c = 8.6% (Uncontrolled, impacts periodontal healing & implant failure risk)
-    FHIRObservation(
-        id="OBS-201",
-        code=FHIRCodeableConcept(
-            coding=[{"system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c/Hemoglobin.total in Blood"}],
-            text="Hemoglobin A1c",
-        ),
-        subject={"reference": "Patient/EHR-54109", "display": "Marcus Chen"},
-        valueQuantity={"value": 8.6, "unit": "%", "system": "http://unitsofmeasure.org", "code": "%"},
-        effectiveDateTime="2026-08-14",
-    ),
-    # Robert Taylor INR = 3.2 (Anticoagulated on Warfarin, surgical bleeding hazard)
-    FHIRObservation(
-        id="OBS-202",
-        code=FHIRCodeableConcept(
-            coding=[{"system": "http://loinc.org", "code": "6301-6", "display": "INR in Platelet poor plasma by Coagulation assay"}],
-            text="International Normalized Ratio (INR)",
-        ),
-        subject={"reference": "Patient/EHR-99342", "display": "Robert Taylor"},
-        valueQuantity={"value": 3.2, "unit": "{INR}", "system": "http://unitsofmeasure.org", "code": "{INR}"},
-        effectiveDateTime="2026-09-10",
-    ),
-]
-
-MOCK_FHIR_ALLERGIES: List[FHIRAllergyIntolerance] = [
-    FHIRAllergyIntolerance(
-        id="ALG-301",
-        criticality="high",
-        code=FHIRCodeableConcept(
-            coding=[{"system": "http://snomed.info/sct", "code": "764146007", "display": "Allergy to Penicillin"}],
-            text="Penicillin G (Anaphylaxis Risk - Use Clindamycin/Azithromycin for dental prophylaxis)",
-        ),
-        patient={"reference": "Patient/EHR-99342", "display": "Robert Taylor"},
-    ),
-    FHIRAllergyIntolerance(
-        id="ALG-302",
-        criticality="high",
-        code=FHIRCodeableConcept(
-            coding=[{"system": "http://snomed.info/sct", "code": "300916003", "display": "Latex allergy"}],
-            text="Natural Rubber Latex Allergy (Requires non-latex dental dams & gloves)",
-        ),
-        patient={"reference": "Patient/EHR-88201", "display": "Eleanor Vance"},
-    ),
-]
+class TranslateRequest(BaseModel):
+    """Request body for the FHIR ConceptMap $translate operation."""
+    system: str = Field(..., description="Source terminology system URI of the code to translate")
+    code: str = Field(..., description="Source code to translate")
+    target: Optional[str] = Field(None, description="Target value set/system URI")
 
 
-@router.get("/metadata", response_model=FHIRCapabilityStatement)
-async def get_capability_statement():
-    """Return FHIR CapabilityStatement for the Medical-Dental Interoperability Node."""
-    return FHIRCapabilityStatement(
-        rest=[
-            {
-                "mode": "server",
-                "resource": [
-                    {"type": "Patient", "interaction": [{"code": "read"}, {"code": "search-type"}]},
-                    {"type": "Condition", "interaction": [{"code": "read"}, {"code": "search-type"}]},
-                    {"type": "Observation", "interaction": [{"code": "read"}, {"code": "search-type"}]},
-                    {"type": "AllergyIntolerance", "interaction": [{"code": "read"}, {"code": "search-type"}]},
-                ],
-            }
-        ]
+class EvaluateRisksRequest(BaseModel):
+    """Request body for the Patient $evaluate-risks operation."""
+    procedureCode: Optional[str] = Field(None, description="Planned dental procedure code, e.g. CDT D7140 (Extraction)")
+    procedureSystem: Optional[str] = Field(
+        "http://www.ada.org/cdt", description="Terminology system for the procedure code (default CDT)"
     )
 
 
-@router.get("/Patient", response_model=List[FHIRPatient])
-async def list_patients(name: Optional[str] = Query(None)):
-    """Search FHIR Patient resources."""
-    if not name:
-        return MOCK_FHIR_PATIENTS
-    name_lower = name.lower()
-    return [
-        p
-        for p in MOCK_PATIENTS
-        if any(name_lower in g.lower() for n in p.name for g in n.get("given", []))
-        or any(name_lower in n.get("family", "").lower() for n in p.name)
-    ]
+@router.get("/server-status", tags=["FHIR System"])
+async def get_fhir_server_status():
+    """Returns live connection health, latency, and FHIR version of the public test server."""
+    return await fhir_client.check_health()
 
 
-@router.get("/Patient/{patient_id}", response_model=FHIRPatient)
-async def get_patient(patient_id: str):
-    """Get FHIR Patient by ID."""
-    for p in MOCK_FHIR_PATIENTS:
-        if p.id == patient_id:
-            return p
-    raise HTTPException(status_code=404, detail=f"FHIR Patient {patient_id} not found")
+@router.get("/metadata", tags=["FHIR Metadata"])
+async def get_capability_statement():
+    """
+    Returns the HL7 FHIR R4 CapabilityStatement declaring supported RESTful interactions
+    from the connected public FHIR server.
+    """
+    return await fhir_client.get_capability_statement()
 
 
-@router.get("/Condition", response_model=List[FHIRCondition])
-async def list_conditions(patient: Optional[str] = Query(None, description="Patient reference, e.g. EHR-88201")):
-    """List medical conditions, optionally filtered by patient ID."""
+@router.get("/Patient", response_model=Union[Bundle, List[Dict[str, Any]]], tags=["FHIR Resources"])
+async def search_patients(
+    family: Optional[str] = Query(None, description="Patient family/last name (probabilistic fuzzy matching enabled)"),
+    given: Optional[str] = Query(None, description="Patient given/first name"),
+    name: Optional[str] = Query(None, description="General patient name"),
+    birthdate: Optional[str] = Query(None, description="Patient birth date (YYYY-MM-DD)"),
+    birthDate: Optional[str] = Query(None, description="FHIR standard birthDate parameter"),
+    identifier: Optional[str] = Query(None, description="Patient identifier or MRN"),
+    _format: Optional[str] = Query(None, description="Set to 'list' or 'json' for flat resource list"),
+    bundle: Optional[bool] = Query(None, description="Set false to return flat list instead of Bundle"),
+):
+    """
+    Searches patients across the connected HL7 FHIR server and local master patient indices.
+    Supports exact, fuzzy, and probabilistic demographic matching with confidence scoring.
+    """
+    dob_query = birthdate or birthDate
+    scored_patients = await fhir_client.search_patients(
+        family=family,
+        given=given,
+        birthdate=dob_query,
+        identifier=identifier,
+        name=name,
+    )
+
+    return_as_list = (_format == "list" or bundle is False)
+    if return_as_list:
+        return [p for p, _ in scored_patients]
+
+    entries = []
+    base_url = "http://localhost:8000/api/fhir"
+    for pt, score in scored_patients:
+        entries.append(
+            BundleEntry(
+                fullUrl=f"{base_url}/Patient/{pt['id']}",
+                resource=pt,
+                search=BundleEntrySearch(
+                    mode="match",
+                    score=score,
+                ),
+            )
+        )
+
+    return Bundle(
+        resourceType="Bundle",
+        id=f"bundle-patient-search-{int(datetime.now(timezone.utc).timestamp())}",
+        type="searchset",
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        total=len(entries),
+        entry=entries,
+    )
+
+
+@router.get("/Patient/{patient_id}", tags=["FHIR Resources"])
+async def get_patient_by_id(patient_id: str):
+    """Retrieve single FHIR Patient by ID or MRN from the public FHIR test server."""
+    patient = await fhir_client.get_patient(patient_id)
     if not patient:
-        return MOCK_FHIR_CONDITIONS
-    norm_id = patient.replace("Patient/", "")
-    return [c for c in MOCK_FHIR_CONDITIONS if norm_id in c.subject.get("reference", "")]
+        raise HTTPException(status_code=404, detail=f"FHIR Patient '{patient_id}' not found")
+    return patient
 
 
-@router.get("/Observation", response_model=List[FHIRObservation])
-async def list_observations(patient: Optional[str] = Query(None, description="Patient reference")):
-    """List medical diagnostic observations (HbA1c, INR, etc.)."""
+@router.get("/Patient/{patient_id}/$everything", response_model=Bundle, tags=["FHIR Operations"])
+async def get_patient_everything(patient_id: str):
+    """
+    USCDI v5 FHIR $everything operation.
+    Exports complete clinical record Bundle (Patient, Conditions, Medications, Allergies, Observations).
+    """
+    bundle = await fhir_client.get_patient_everything(patient_id)
+    if not bundle:
+        raise HTTPException(status_code=404, detail=f"Patient '{patient_id}' not found for $everything export.")
+    return Bundle.model_validate(bundle)
+
+
+@router.get("/Condition", response_model=List[Dict[str, Any]], tags=["FHIR Resources"])
+async def list_conditions(
+    patient: Optional[str] = Query(None, description="Patient reference or ID, e.g. patient-001 or EHR-88201"),
+    clinical_status: Optional[str] = Query("active", description="Filter by clinical status (default active)"),
+):
+    """Filter active medical conditions for a given patient."""
+    return await fhir_client.get_conditions(patient_id_or_mrn=patient, status=clinical_status)
+
+
+@router.get("/MedicationRequest", response_model=List[Dict[str, Any]], tags=["FHIR Resources"])
+async def list_medication_requests(
+    patient: Optional[str] = Query(None, description="Patient reference or ID"),
+    status: Optional[str] = Query("active", description="Filter by medication status (default active)"),
+):
+    """Filter active medication requests for a given patient."""
+    return await fhir_client.get_medication_requests(patient_id_or_mrn=patient, status=status)
+
+
+@router.get("/AllergyIntolerance", response_model=List[Dict[str, Any]], tags=["FHIR Resources"])
+async def list_allergies(
+    patient: Optional[str] = Query(None, description="Patient reference or ID"),
+):
+    """Filter allergy and intolerance records for a given patient."""
+    return await fhir_client.get_allergies(patient_id_or_mrn=patient)
+
+
+@router.get("/Observation", response_model=List[Dict[str, Any]], tags=["FHIR Resources"])
+async def list_observations(
+    patient: Optional[str] = Query(None, description="Patient reference or ID"),
+):
+    """Filter diagnostic observations and laboratory results (e.g. HbA1c, INR)."""
+    return await fhir_client.get_observations(patient_id_or_mrn=patient)
+
+
+@router.post("/ConceptMap/$translate", tags=["FHIR Terminology"])
+async def translate_concept(body: TranslateRequest):
+    """
+    HL7 FHIR R4 ConceptMap $translate operation.
+    Translates a single coded medical concept (ICD-10-CM, SNOMED-CT, or RxNorm) into
+    dental clinical alert concept(s) using the medical-to-dental-contraindications ConceptMap.
+    """
+    return terminology_engine.translate_concept(body.system, body.code)
+
+
+@router.post("/Patient/{patient_id}/$evaluate-risks", tags=["FHIR Operations"])
+async def evaluate_patient_risks(patient_id: str, body: Optional[EvaluateRisksRequest] = None):
+    """
+    Semantic dental risk evaluation for a patient.
+    Retrieves the patient's active conditions, medications, and allergies, translates
+    them via the ConceptMap terminology engine, and returns synthesized dental alerts.
+    """
+    patient = await fhir_client.get_patient(patient_id)
     if not patient:
-        return MOCK_FHIR_OBSERVATIONS
-    norm_id = patient.replace("Patient/", "")
-    return [o for o in MOCK_FHIR_OBSERVATIONS if norm_id in o.subject.get("reference", "")]
+        raise HTTPException(status_code=404, detail=f"Patient '{patient_id}' not found for $evaluate-risks.")
+
+    clean_id = patient["id"]
+    conditions = await fhir_client.get_conditions(clean_id)
+    medications = await fhir_client.get_medication_requests(clean_id)
+    allergies = await fhir_client.get_allergies(clean_id)
+
+    alerts = terminology_engine.synthesize_patient_risk(conditions, medications, allergies)
+
+    procedure_code = body.procedureCode if body else None
+    procedure_system = (body.procedureSystem if body else None) or "http://www.ada.org/cdt"
+
+    return {
+        "resourceType": "Parameters",
+        "patientId": clean_id,
+        "procedure": (
+            {"system": procedure_system, "code": procedure_code} if procedure_code else None
+        ),
+        "alertCount": len(alerts),
+        "alerts": alerts,
+    }
 
 
-@router.get("/AllergyIntolerance", response_model=List[FHIRAllergyIntolerance])
-async def list_allergies(patient: Optional[str] = Query(None, description="Patient reference")):
-    """List allergies, including dental-critical drug & latex allergies."""
-    if not patient:
-        return MOCK_FHIR_ALLERGIES
-    norm_id = patient.replace("Patient/", "")
-    return [a for a in MOCK_FHIR_ALLERGIES if norm_id in a.patient.get("reference", "")]
+@router.post("/sync-to-server", tags=["FHIR Operations"])
+async def sync_resource_to_server(resource: Dict[str, Any]):
+    """Pushes a FHIR resource directly to the configured HL7 Public Test Server."""
+    try:
+        res = await fhir_client.sync_resource_to_server(resource)
+        return {"status": "success", "result": res}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Public FHIR Server synchronization error: {e}")

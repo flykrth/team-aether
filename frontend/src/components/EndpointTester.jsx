@@ -7,6 +7,7 @@ const ENDPOINTS = [
   { id: 'carestack-status', name: 'CareStack Status', method: 'GET', path: '/api/carestack/status', fn: () => api.getCareStackStatus() },
   { id: 'carestack-patients', name: 'CareStack Patients', method: 'GET', path: '/api/carestack/patients', fn: () => api.getCareStackPatients() },
   { id: 'fhir-metadata', name: 'FHIR Capability', method: 'GET', path: '/api/fhir/metadata', fn: () => api.getFhirMetadata() },
+  { id: 'fhir-server-status', name: 'FHIR Live Test Server Status', method: 'GET', path: '/api/fhir/server-status', fn: () => api.getFhirServerStatus() },
   { id: 'fhir-patients', name: 'FHIR Patient Resources', method: 'GET', path: '/api/fhir/Patient', fn: () => api.getFhirPatients() },
   { id: 'cds-discovery', name: 'CDS Hooks Discovery', method: 'GET', path: '/cds-services', fn: () => api.getCdsServices() },
   {

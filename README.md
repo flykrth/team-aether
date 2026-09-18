@@ -149,9 +149,15 @@ The **Medical-Dental Interoperability Node (MDIN)** is an open-standard, federat
 - **Production HTTP Client (`CareStackClient`)**: Asynchronous HTTP client service (`backend/app/services/carestack_client.py`) with automatic credential header attachment and standard HTTP status code error handling (2xx, 4xx, 5xx).
 - **Bi-Directional Interoperability & Webhook Ingestion**: Listens for CareStack appointment and chairside check-in events (`patient.checkin`), executes exact MRN & probabilistic demographic matching against hospital EHR master patient indices (MPI), caches context in-memory (`SYNCED_CLINICAL_CACHE`), and writes high-priority alerts back to CareStack charts (`POST /api/carestack/patients/{id}/medical-alerts`).
 
-#### 2. HL7 FHIR R4 Federated EHR Query Engine (USCDI v5 Standards)
+#### 2. HL7 FHIR R4 Federated EHR Integration (Public Test Servers & USCDI v5)
+- Directly integrated with official **HL7 FHIR Public Test Servers** listed on [HL7 Confluence Public Test Servers](https://confluence.hl7.org/spaces/FHIR/pages/35718859/Public+Test+Servers):
+  - Primary: **HAPI FHIR Reference Server** (`https://hapi.fhir.org/baseR4`)
+  - Alternative: **NLM HAPI FHIR Server** (`https://lforms-fhir.nlm.nih.gov/baseR4`)
+  - Alternative: **Firely Server** (`https://server.fire.ly/r4`)
+- Real asynchronous **`FHIRClient`** (`backend/app/services/fhir_client.py`) executing live HTTP requests to public test servers, replacing in-memory mock datasets and dummy placeholders.
+- Real-time diagnostic endpoint (`GET /api/fhir/server-status`) reporting live connection health, round-trip ping latency, FHIR version (4.0.1), and remote server software.
 - Strictly conforms to HL7 FHIR Release 4.0.1 and **USCDI v5** (United States Core Data for Interoperability) standards.
-- Serves `/api/fhir` endpoints for `Patient`, `Condition`, `MedicationRequest`, `AllergyIntolerance`, `Observation`, and `CapabilityStatement`.
+- Serves standard `/api/fhir` endpoints for `Patient`, `Condition`, `MedicationRequest`, `AllergyIntolerance`, `Observation`, and `CapabilityStatement`.
 - Exposes `$everything` patient-scoped bundle export aggregating conditions, medications, allergies, and diagnostic labs (HbA1c, INR).
 
 #### 3. FHIR ConceptMap Semantic Translation Engine

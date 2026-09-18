@@ -146,13 +146,13 @@ async def generate_and_attach_lomn(request: GenerateAndAttachLOMNRequest) -> Gen
     it in the CareStack patient's attached_documents record.
     """
     from .carestack_mock import CARESTACK_PATIENT_ALIASES, MOCK_PATIENTS, save_patient_document, _find_carestack_patient
-    from .fhir_ehr_mock import FHIR_STORE, _normalize_ref_id, _resolve_patient_aliases
+    from ..services.fhir_client import fhir_client, normalize_ref_id, resolve_patient_aliases
     from ..services.document_generator import medical_necessity_generator
 
     clean_id = (request.patient_id or "").lower().strip()
     canonical_id = CARESTACK_PATIENT_ALIASES.get(clean_id, clean_id.upper())
 
-    # Step 1: Pull patient demographics from CareStack mock
+    # Step 1: Pull patient demographics from CareStack PMS
     cs_patient = _find_carestack_patient(request.patient_id)
 
     patient_demographics: Dict[str, Any] = {}
@@ -171,11 +171,11 @@ async def generate_and_attach_lomn(request: GenerateAndAttachLOMNRequest) -> Gen
         }
     else:
         # Fallback to FHIR Patient resource
-        matching_keys = set(_resolve_patient_aliases(clean_id))
+        matching_keys = set(resolve_patient_aliases(clean_id))
         matching_keys.add(clean_id)
         matching_keys.add(canonical_id.lower())
         fhir_patient = None
-        for p in FHIR_STORE["Patient"]:
+        for p in fhir_client._local_cache["Patient"]:
             pid = p.get("id", "").lower()
             mrns = [ident.get("value", "").lower() for ident in p.get("identifier", [])]
             if pid in matching_keys or any(m in matching_keys for m in mrns):
@@ -204,7 +204,7 @@ async def generate_and_attach_lomn(request: GenerateAndAttachLOMNRequest) -> Gen
             detail=f"Patient '{request.patient_id}' not found across CareStack PMS and FHIR EHR.",
         )
 
-    # Step 2: Pull active conditions and medications from FHIR mock
+    # Step 2: Pull active conditions and medications from FHIR EHR
     target_ids = {clean_id, canonical_id.lower()}
     if cs_patient:
         target_ids.add(cs_patient.id.lower())
@@ -215,21 +215,21 @@ async def generate_and_attach_lomn(request: GenerateAndAttachLOMNRequest) -> Gen
         target_ids.add(patient_demographics["id"].lower())
     if patient_demographics.get("mrn"):
         target_ids.add(patient_demographics["mrn"].lower())
-    for a in _resolve_patient_aliases(clean_id):
+    for a in resolve_patient_aliases(clean_id):
         target_ids.add(a.lower())
     if patient_demographics.get("id"):
-        for a in _resolve_patient_aliases(patient_demographics["id"]):
+        for a in resolve_patient_aliases(patient_demographics["id"]):
             target_ids.add(a.lower())
 
     def _matches(ref_str: str) -> bool:
         if not ref_str:
             return False
-        clean = _normalize_ref_id(ref_str).lower()
+        clean = normalize_ref_id(ref_str).lower()
         return clean in target_ids
 
-    patient_conditions = [c for c in FHIR_STORE["Condition"] if _matches(c.get("subject", {}).get("reference", ""))]
-    patient_medications = [m for m in FHIR_STORE["MedicationRequest"] if _matches(m.get("subject", {}).get("reference", ""))]
-    patient_observations = [o for o in FHIR_STORE["Observation"] if _matches(o.get("subject", {}).get("reference", ""))]
+    patient_conditions = [c for c in fhir_client._local_cache["Condition"] if _matches(c.get("subject", {}).get("reference", ""))]
+    patient_medications = [m for m in fhir_client._local_cache["MedicationRequest"] if _matches(m.get("subject", {}).get("reference", ""))]
+    patient_observations = [o for o in fhir_client._local_cache["Observation"] if _matches(o.get("subject", {}).get("reference", ""))]
 
 
     clinical_findings = {

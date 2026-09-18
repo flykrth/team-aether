@@ -372,7 +372,7 @@ class AdministrativeCrossCodingEngine:
         conditions and demographics, and evaluates the cross-coding opportunity.
         """
         from ..routers.carestack_mock import CARESTACK_PATIENT_ALIASES, MOCK_PATIENTS, _find_carestack_patient
-        from ..routers.fhir_ehr_mock import FHIR_STORE, _normalize_ref_id
+        from .fhir_client import fhir_client, normalize_ref_id, resolve_patient_aliases
 
         # Normalize patient ID
         clean_id = patient_id.lower().strip()
@@ -396,7 +396,7 @@ class AdministrativeCrossCodingEngine:
         else:
             # Fallback to FHIR Patient resource
             fhir_patient = next(
-                (p for p in FHIR_STORE["Patient"] if _normalize_ref_id(p.get("id")) == clean_id), None
+                (p for p in fhir_client._local_cache["Patient"] if normalize_ref_id(p.get("id")) == clean_id), None
             )
             if fhir_patient:
                 names = fhir_patient.get("name", [{}])[0]
@@ -415,28 +415,27 @@ class AdministrativeCrossCodingEngine:
                 }
 
         # Retrieve patient conditions from FHIR EHR
-        from ..routers.fhir_ehr_mock import _resolve_patient_aliases
         target_ids = {clean_id, cs_id.lower()}
-        for a in _resolve_patient_aliases(clean_id):
+        for a in resolve_patient_aliases(clean_id):
             target_ids.add(a.lower())
         if cs_id:
-            for a in _resolve_patient_aliases(cs_id):
+            for a in resolve_patient_aliases(cs_id):
                 target_ids.add(a.lower())
         if cs_id in ("CS-1003", "CS-2003") or clean_id in ("cs-1003", "cs-2003", "patient-003"):
             target_ids.update({"patient-003", "pat-3", "cs-1003", "cs-2003", "mrn-10003"})
         if demographics.get("id"):
             target_ids.add(demographics["id"].lower())
-            for a in _resolve_patient_aliases(demographics["id"]):
+            for a in resolve_patient_aliases(demographics["id"]):
                 target_ids.add(a.lower())
         if demographics.get("mrn"):
             target_ids.add(demographics["mrn"].lower())
-            for a in _resolve_patient_aliases(demographics["mrn"]):
+            for a in resolve_patient_aliases(demographics["mrn"]):
                 target_ids.add(a.lower())
 
         patient_conditions: List[Dict[str, Any]] = []
-        for cond in FHIR_STORE["Condition"]:
+        for cond in fhir_client._local_cache["Condition"]:
             subj = cond.get("subject", {}).get("reference", "")
-            subj_id = _normalize_ref_id(subj).lower()
+            subj_id = normalize_ref_id(subj).lower()
             if subj_id in target_ids:
                 patient_conditions.append(cond)
 

@@ -48,6 +48,7 @@ async def root():
         "status": "online",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "carestack_integration": describe_integration_mode(),
+        "fhir_server": settings.FHIR_SERVER_URL,
         "endpoints": {
             "docs": "/docs",
             "health": "/health",
@@ -55,6 +56,7 @@ async def root():
             "carestack_connectivity": "/api/carestack/connectivity",
             "carestack_v1": "/api/v1.0/patients",
             "fhir": "/api/fhir/metadata",
+            "fhir_server_status": "/api/fhir/server-status",
             "cds_discovery": "/cds-services",
             "billing": "/api/billing/crosswalk-rules",
             "evaluate_claim": "/api/billing/evaluate-claim",

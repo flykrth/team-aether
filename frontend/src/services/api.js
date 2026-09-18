@@ -43,8 +43,9 @@ export const api = {
       }),
     }),
 
-  // FHIR R4 Medical
+  // FHIR R4 Medical (Connected to HL7 Public Test Server)
   getFhirMetadata: () => fetchJson('/api/fhir/metadata'),
+  getFhirServerStatus: () => fetchJson('/api/fhir/server-status'),
   getFhirPatients: () => fetchJson('/api/fhir/Patient'),
   getFhirPatient: (idOrMrn) => fetchJson(`/api/fhir/Patient/${encodeURIComponent(idOrMrn)}`),
   getFhirConditions: (patientId) =>

@@ -54,8 +54,12 @@ try:
         SIMULATOR_ACCOUNT_KEY: str = "demo-account-key"
         SIMULATOR_ACCOUNT_ID: str = "demo-account-001"
 
-        # FHIR R4 Integration
+        # FHIR R4 Public Test Server Integration (HL7 Directory)
+        # Reference: https://confluence.hl7.org/spaces/FHIR/pages/35718859/Public+Test+Servers
         FHIR_SERVER_URL: str = "https://hapi.fhir.org/baseR4"
+        FHIR_FALLBACK_SERVER_URL: str = "https://lforms-fhir.nlm.nih.gov/baseR4"
+        FHIR_TIMEOUT_SECONDS: float = 8.0
+        FHIR_USE_CACHE_FALLBACK: bool = True
 
         # CDS Hooks Service
         CDS_DISCOVERY_PATH: str = "/cds-services"
@@ -106,6 +110,9 @@ except ImportError:
         SIMULATOR_ACCOUNT_ID: str = os.getenv("SIMULATOR_ACCOUNT_ID", "demo-account-001")
 
         FHIR_SERVER_URL: str = os.getenv("FHIR_SERVER_URL", "https://hapi.fhir.org/baseR4")
+        FHIR_FALLBACK_SERVER_URL: str = os.getenv("FHIR_FALLBACK_SERVER_URL", "https://lforms-fhir.nlm.nih.gov/baseR4")
+        FHIR_TIMEOUT_SECONDS: float = float(os.getenv("FHIR_TIMEOUT_SECONDS", "8.0"))
+        FHIR_USE_CACHE_FALLBACK: bool = os.getenv("FHIR_USE_CACHE_FALLBACK", "True").lower() in ("1", "true", "yes")
         CDS_DISCOVERY_PATH: str = os.getenv("CDS_DISCOVERY_PATH", "/cds-services")
 
         @property

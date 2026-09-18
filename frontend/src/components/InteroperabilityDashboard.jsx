@@ -59,7 +59,7 @@ export function InteroperabilityDashboard({ carestackStatus, fhirOnline, onRefre
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800">Medical EHR</span>
             <span className="text-[10px] bg-teal-100 text-teal-800 font-semibold px-2 py-0.5 rounded border border-teal-200">
-              HL7 FHIR R4
+              HL7 FHIR R4 (Live)
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -67,15 +67,22 @@ export function InteroperabilityDashboard({ carestackStatus, fhirOnline, onRefre
               <Stethoscope className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-semibold text-text-main text-xs">Medical Health Record</h3>
+              <h3 className="font-semibold text-text-main text-xs">HAPI FHIR Reference Server</h3>
               <p className="text-[11px] text-text-secondary mt-0.5">
-                Conditions, Labs, Rx, Allergies
+                HL7 Public Test Directory (USCDI v5)
               </p>
             </div>
           </div>
-          <div className="mt-3 pt-2 border-t border-teal-200 text-[10px] text-text-secondary flex justify-between">
-            <span>FHIR Endpoint:</span>
-            <code className="font-mono bg-white px-1 py-0.5 rounded border border-app-border text-text-main">/api/fhir</code>
+          <div className="mt-3 pt-2 border-t border-teal-200 text-[10px] text-text-secondary flex justify-between items-center">
+            <span>Server URL:</span>
+            <a
+              href="https://hapi.fhir.org/baseR4"
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono bg-white px-1 py-0.5 rounded border border-app-border text-teal-700 hover:underline text-[9px]"
+            >
+              hapi.fhir.org/baseR4
+            </a>
           </div>
         </div>
 
