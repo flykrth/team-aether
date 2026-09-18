@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Activity, RefreshCcw, FileCode, CheckCircle2, ShieldAlert, TrendingUp, Sparkles, FileSpreadsheet } from 'lucide-react';
+import { Activity, RefreshCcw, FileCode, CheckCircle2, ShieldAlert, TrendingUp, Sparkles, FileSpreadsheet, Hospital, Stethoscope } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { PatientHeader } from './components/PatientHeader';
 import { ClinicalContext } from './components/ClinicalContext';
@@ -11,11 +11,13 @@ import { PatientTimeline } from './components/PatientTimeline';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { PatientRecordViewer } from './components/PatientRecordViewer';
 import { FinancialOptimizationModal } from './components/FinancialOptimizationModal';
+import { PhysicianClearancePortal } from './components/PhysicianClearancePortal';
 import { api } from './services/api';
 
 const DEMO_PATIENT_IDS = ['CS-2001', 'CS-2002', 'CS-1003'];
 
 export function App() {
+  const [mainView, setMainView] = useState('operatory'); // 'operatory' | 'physician'
   const [activeTab, setActiveTab] = useState('chairside');
   const [backendOnline, setBackendOnline] = useState(false);
   const [carestackStatus, setCarestackStatus] = useState(null);
@@ -139,6 +141,11 @@ export function App() {
   const handleRequestConsult = useCallback(
     async (card) => {
       if (!selectedPatient) return;
+      try {
+        await api.dispatchClearance(selectedPatient.id, lastProcedure?.code || 'D7140');
+      } catch (err) {
+        console.warn('Clearance dispatch notice:', err);
+      }
       await api.postMedicalAlert(selectedPatient.id, {
         alert_type: 'warning',
         category: 'coagulation',
@@ -150,8 +157,9 @@ export function App() {
         action_required: 'Obtain INR within 24-48 hours prior to procedure.',
       });
       setAlertsVersion((v) => v + 1);
+      setClaimToast(`Automated Digital Clearance Passport dispatched to Dr. Kenneth Vance, MD at Metropolitan Heart Center.`);
     },
-    [selectedPatient]
+    [selectedPatient, lastProcedure]
   );
 
   const handleSimulateWebhookSync = async () => {
@@ -221,6 +229,49 @@ export function App() {
         showDeveloperConsole={showDeveloperConsole}
       />
 
+      {/* Top-Level Demo Bar / Pitch Mode Switcher (Step 12) */}
+      <div className="bg-slate-900 border-b border-slate-800 text-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-bold text-teal-400 uppercase tracking-wider text-[10px] bg-teal-950 px-2.5 py-0.5 rounded border border-teal-700/60 flex items-center gap-1.5 shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
+              <span>DSOLVE 2026 Live Pitch Switcher</span>
+            </span>
+            <span className="text-slate-500 hidden sm:inline">•</span>
+            <span className="text-slate-300 text-[11px]">
+              Bidirectional Asynchronous Medical-Dental Clearance Loop
+            </span>
+          </div>
+
+          {/* Top-Level Tab Switcher */}
+          <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-700/80 text-xs font-semibold shadow-inner">
+            <button
+              onClick={() => setMainView('operatory')}
+              className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                mainView === 'operatory'
+                  ? 'bg-teal-500 text-white shadow-xs font-bold'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Stethoscope className="w-3.5 h-3.5" />
+              <span>CareStack Dental Operatory View</span>
+            </button>
+
+            <button
+              onClick={() => setMainView('physician')}
+              className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                mainView === 'physician'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold ring-1 ring-blue-400/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              <Hospital className="w-3.5 h-3.5" />
+              <span>External Physician Portal (Hospital EHR Simulator)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5">
         {/* Isolated Developer Console Container */}
         {showDeveloperConsole && (
@@ -266,14 +317,29 @@ export function App() {
           </div>
         )}
 
-        {/* Patient Demographic Banner with CareStack Documents Counter */}
-        <PatientHeader
-          patients={patients}
-          selectedPatient={selectedPatient}
-          onSelectPatient={handleSelectPatient}
-          activeProcedure={lastProcedure}
-          documentsCount={documentsCount}
-        />
+        {/* Dual Mode View: External Physician Portal vs CareStack Dental Operatory */}
+        {mainView === 'physician' ? (
+          <PhysicianClearancePortal
+            patient={selectedPatient}
+            onClearanceUpdated={(updatedPassport) => {
+              loadStatusAndPatients();
+              setAlertsVersion((v) => v + 1);
+              setClaimToast(
+                `Real-time CareStack webhook callback received: Clearance for ${selectedPatient?.first_name} ${selectedPatient?.last_name} updated to "${updatedPassport?.status?.replace(/_/g, ' ')}" by ${updatedPassport?.decision?.signed_by || 'Dr. Vance'}.`
+              );
+            }}
+            onSwitchToDentalView={() => setMainView('operatory')}
+          />
+        ) : (
+          <>
+            {/* Patient Demographic Banner with CareStack Documents Counter */}
+            <PatientHeader
+              patients={patients}
+              selectedPatient={selectedPatient}
+              onSelectPatient={handleSelectPatient}
+              activeProcedure={lastProcedure}
+              documentsCount={documentsCount}
+            />
 
         {/* Doctor View 1: Patient Workspace */}
         {activeTab === 'chairside' && (
@@ -297,6 +363,17 @@ export function App() {
                   onCardsUpdate={handleCardsUpdate}
                   alertsVersion={alertsVersion}
                   documentsCount={documentsCount}
+                  onClearanceUpdated={(clearance) => {
+                    loadStatusAndPatients();
+                    setAlertsVersion((v) => v + 1);
+                    const doc = clearance?.decision?.signed_by || clearance?.physician?.name || 'Dr. Kenneth Vance, MD';
+                    const cdt = clearance?.proposed_procedures?.[0]?.cdt_code || lastProcedure?.code || 'D7140';
+                    const inr = clearance?.decision?.coagulation_parameters?.target_inr_range || '2.0-2.5';
+                    const decision = clearance?.status?.replace(/_/g, ' ') || 'APPROVED';
+                    setClaimToast(
+                      `New InBasket Notification: ${doc} signed clearance (${decision}) for CDT ${cdt} with condition: Target INR ${inr}.`
+                    );
+                  }}
                 />
               </div>
 
@@ -366,6 +443,15 @@ export function App() {
                       <CDSHookCard
                         key={card.uuid || idx}
                         card={card}
+                        patient={selectedPatient}
+                        procedure={lastProcedure}
+                        onClearanceDispatched={(res) => {
+                          loadStatusAndPatients();
+                          setAlertsVersion((v) => v + 1);
+                          setClaimToast(
+                            `Digital Clearance Passport dispatched to Dr. Kenneth Vance (Metropolitan Heart Center) via FHIR Task for ${selectedPatient?.first_name} ${selectedPatient?.last_name}.`
+                          );
+                        }}
                         onAppendAlert={handleAppendAlert}
                         onRequestConsult={handleRequestConsult}
                         onViewEvidence={(c) => setSelectedEvidenceCard(c)}
@@ -407,6 +493,8 @@ export function App() {
               <MedicalEHRViewer patient={selectedPatient} />
             </div>
           </div>
+        )}
+          </>
         )}
       </main>
 

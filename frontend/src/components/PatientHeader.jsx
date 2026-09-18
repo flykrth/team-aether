@@ -47,6 +47,23 @@ export function PatientHeader({ patients, selectedPatient, onSelectPatient, acti
             </span>
           </div>
 
+          {/* Medical Clearance Status Badge (Step 11 & 12) */}
+          {selectedPatient?.medical_clearance && (
+            <div
+              className={`px-2.5 py-1 rounded border text-xs font-semibold flex items-center gap-1.5 shadow-2xs ${
+                selectedPatient.medical_clearance.is_cleared_for_surgery
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                  : 'bg-rose-50 text-rose-900 border-rose-300'
+              }`}
+            >
+              <ShieldCheck className={`w-3.5 h-3.5 ${selectedPatient.medical_clearance.is_cleared_for_surgery ? 'text-emerald-600' : 'text-rose-600'}`} />
+              <span>Cardiology Clearance:</span>
+              <span className="font-bold uppercase tracking-wider text-[11px]">
+                {selectedPatient.medical_clearance.status?.replace(/_/g, ' ')}
+              </span>
+            </div>
+          )}
+
           {activeProcedure && (
             <div className="bg-app-bg px-3 py-1.5 rounded border border-app-border text-xs flex items-center gap-2">
               <span className="text-text-muted">Today's Procedure:</span>

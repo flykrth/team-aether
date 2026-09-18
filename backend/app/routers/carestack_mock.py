@@ -1687,3 +1687,132 @@ async def get_patient_documents(patient_id: str, request: Request):
     return docs
 
 
+# =====================================================================
+# Step 11: Medical Clearance Status Webhook & Audit Endpoint
+# =====================================================================
+
+PATIENT_MEDICAL_CLEARANCE_STATUS: Dict[str, List[Dict[str, Any]]] = {}
+
+
+@router.post(
+    "/patients/{patient_id}/medical-clearance-status",
+    tags=["MDIN Interoperability - Medical Clearance"],
+)
+async def update_patient_medical_clearance_status(
+    patient_id: str,
+    payload: Dict[str, Any],
+):
+    """
+    CareStack PMS Webhook Endpoint for Step 11 Digital Clearance Passport:
+    Receives automated medical clearance status updates from the Clearance Engine
+    when an attending physician submits their clinical sign-off.
+    """
+    patient = _find_carestack_patient(patient_id)
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CareStack patient '{patient_id}' not found",
+        )
+
+    canonical_id = patient.id
+    record = {
+        **payload,
+        "patient_id": patient_id,
+        "canonical_patient_id": canonical_id,
+        "received_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Update patient model's medical_clearance attribute
+    decision_val = payload.get("decision") or payload.get("status") or "APPROVED"
+    is_cleared = decision_val in ("APPROVED", "APPROVED_WITH_CONDITIONS")
+    signed_by = payload.get("signed_by") or payload.get("physician_name") or "Dr. Kenneth Vance, MD"
+    coag = payload.get("coagulation_parameters") or {}
+    inr_range = coag.get("target_inr_range", "2.0-2.5")
+    notes = payload.get("physician_notes") or ""
+
+    medical_clearance_record = {
+        "request_id": payload.get("request_id"),
+        "status": decision_val,
+        "decision": decision_val,
+        "is_cleared_for_surgery": is_cleared,
+        "physician_notes": notes,
+        "coagulation_parameters": coag,
+        "signed_by": signed_by,
+        "timestamp": payload.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+    }
+    setattr(patient, "medical_clearance", medical_clearance_record)
+
+    # Store under patient_id, canonical_id, and MRN
+    for key in {patient_id, canonical_id, patient.mrn}:
+        if key:
+            if key not in PATIENT_MEDICAL_CLEARANCE_STATUS:
+                PATIENT_MEDICAL_CLEARANCE_STATUS[key] = []
+            PATIENT_MEDICAL_CLEARANCE_STATUS[key].append(record)
+
+    # Append clinical alert to CareStack chart
+    if is_cleared:
+        alert_title = f"MEDICAL CLEARANCE — Cardiology Clearance Received: Target INR {inr_range}. Approved by Dr. Vance."
+    else:
+        alert_title = f"MEDICAL CLEARANCE — Cardiology Clearance Rejected: Denied by Dr. Vance."
+
+    alert_details = f"Clearance sign-off by {signed_by}. Directive: {notes}"
+    alert_record = {
+        "alert_id": f"ALT-CLR-{uuid.uuid4().hex[:6].upper()}",
+        "patient_id": canonical_id,
+        "mrn": patient.mrn,
+        "patient_name": f"{patient.first_name} {patient.last_name}",
+        "alert_type": "critical" if decision_val == "REJECTED" else "warning" if "CONDITION" in decision_val else "info",
+        "category": "clearance",
+        "title": alert_title,
+        "details": alert_details,
+        "source": "Digital Clearance Passport Webhook",
+        "action_required": not is_cleared,
+        "status": "posted_to_chart",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    for key in {patient_id, canonical_id, patient.mrn}:
+        if key:
+            if key not in PATIENT_MEDICAL_ALERTS:
+                PATIENT_MEDICAL_ALERTS[key] = []
+            PATIENT_MEDICAL_ALERTS[key].append(alert_record)
+
+    return {
+        "status": "acknowledged",
+        "updated_patient_id": patient_id,
+        "canonical_patient_id": canonical_id,
+        "clearance_status": record,
+        "medical_clearance": medical_clearance_record,
+    }
+
+
+@router.get(
+    "/patients/{patient_id}/medical-clearance-status",
+    tags=["MDIN Interoperability - Medical Clearance"],
+)
+async def get_patient_medical_clearance_status(patient_id: str):
+    """
+    Retrieve all medical clearance notifications and audit logs received for a CareStack patient.
+    """
+    patient = _find_carestack_patient(patient_id)
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CareStack patient '{patient_id}' not found",
+        )
+
+    canonical_id = patient.id
+    statuses = (
+        PATIENT_MEDICAL_CLEARANCE_STATUS.get(patient_id)
+        or PATIENT_MEDICAL_CLEARANCE_STATUS.get(canonical_id)
+        or PATIENT_MEDICAL_CLEARANCE_STATUS.get(patient.mrn)
+        or []
+    )
+
+    return {
+        "patient_id": patient_id,
+        "canonical_patient_id": canonical_id,
+        "clearance_count": len(statuses),
+        "statuses": statuses,
+    }
+
+

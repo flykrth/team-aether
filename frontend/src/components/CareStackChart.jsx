@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   FileText,
   CheckCircle2,
@@ -9,6 +9,13 @@ import {
   User,
   ShieldAlert,
   FileCheck,
+  ShieldCheck,
+  Clock,
+  X,
+  RefreshCw,
+  Send,
+  Check,
+  ChevronDown,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -45,11 +52,141 @@ export function CareStackChart({
   onCardsUpdate,
   alertsVersion,
   documentsCount = 0,
+  onClearanceUpdated,
 }) {
   const [selectedProcedure, setSelectedProcedure] = useState(null);
   const [hookLoading, setHookLoading] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
+  const [clearanceData, setClearanceData] = useState(null);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [simulatingWebhook, setSimulatingWebhook] = useState(false);
+  const [simulatedSuccess, setSimulatedSuccess] = useState(false);
+  const popoverRef = useRef(null);
+
+  // Close popover when clicking outside or pressing Escape
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
+        setIsPopoverOpen(false);
+      }
+    }
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setIsPopoverOpen(false);
+      }
+    }
+    if (isPopoverOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPopoverOpen]);
+
+  // Automated 3-second polling for asynchronous medical clearance status & physician sign-off
+  const fetchClearance = useCallback(async (silent = false) => {
+    if (!selectedPatient?.id) return;
+    try {
+      const [list, csStatus] = await Promise.all([
+        api.getPatientClearances(selectedPatient.id).catch(() => []),
+        api.getCareStackMedicalClearanceStatus(selectedPatient.id).catch(() => null),
+      ]);
+
+      const latest = Array.isArray(list) && list.length > 0 ? list[list.length - 1] : null;
+
+      let merged = null;
+      if (latest) {
+        merged = { ...latest };
+        if (csStatus && csStatus.status && csStatus.status !== 'NONE') {
+          merged.carestack_status = csStatus.status;
+          merged.is_cleared_for_surgery = csStatus.is_cleared_for_surgery;
+        }
+      } else if (csStatus && csStatus.status && csStatus.status !== 'NONE') {
+        merged = {
+          request_id: csStatus.request_id || 'CS-RECORD',
+          status: csStatus.status,
+          decision: csStatus.decision
+            ? {
+                decision: csStatus.decision,
+                physician_notes: csStatus.notes,
+                coagulation_parameters: csStatus.coagulation_parameters || {
+                  target_inr_range: '2.0-2.5',
+                  hold_medication: false,
+                  hold_hours: 0,
+                },
+                signed_by: csStatus.signed_by || 'Dr. Kenneth Vance, MD (Cardiology)',
+                timestamp: csStatus.signed_at || csStatus.updated_at,
+              }
+            : null,
+          physician: {
+            name: csStatus.signed_by || 'Dr. Kenneth Vance, MD',
+            specialty: 'Cardiology',
+            facility_name: 'Metropolitan Heart Center',
+            fhir_endpoint: 'https://fhir.metroheart.org/r4',
+            direct_email: 'k.vance@metroheart.org',
+          },
+          is_cleared_for_surgery: csStatus.is_cleared_for_surgery,
+        };
+      }
+
+      setClearanceData((prev) => {
+        if (prev && merged && prev.status !== merged.status) {
+          onClearanceUpdated?.(merged);
+        }
+        return merged;
+      });
+    } catch (err) {
+      if (!silent) console.error('Failed to load clearance status:', err);
+    }
+  }, [selectedPatient, onClearanceUpdated]);
+
+  useEffect(() => {
+    fetchClearance();
+    const interval = setInterval(() => {
+      fetchClearance(true);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [fetchClearance, alertsVersion]);
+
+  // 1-Click Simulation of Incoming EHR Webhook Callback
+  const handleSimulateWebhookCallback = async () => {
+    if (simulatingWebhook || !selectedPatient) return;
+    setSimulatingWebhook(true);
+    setSimulatedSuccess(false);
+    try {
+      let targetReqId = clearanceData?.request_id;
+      if (!targetReqId || targetReqId === 'CS-RECORD') {
+        const dispatched = await api.dispatchClearance(selectedPatient.id, selectedProcedure || 'D7140');
+        targetReqId = dispatched.request_id;
+      }
+
+      const decisionPayload = {
+        request_id: String(targetReqId),
+        decision: 'APPROVED_WITH_CONDITIONS',
+        physician_notes:
+          'Cardiology pre-operative evaluation completed. Safe for routine/surgical dental extraction under controlled local hemostasis. Continue current oral anticoagulation regimen with verified morning INR 2.0-2.5.',
+        coagulation_parameters: {
+          target_inr_range: '2.0-2.5',
+          hold_medication: false,
+          hold_hours: 0,
+        },
+        signed_by: 'Dr. Kenneth Vance, MD (Cardiology)',
+      };
+
+      const updated = await api.submitClearanceDecision(targetReqId, decisionPayload);
+      await fetchClearance(true);
+      setSimulatedSuccess(true);
+      setTimeout(() => setSimulatedSuccess(false), 4000);
+      onClearanceUpdated?.(updated);
+    } catch (err) {
+      console.error('Failed to simulate incoming EHR webhook callback:', err);
+    } finally {
+      setSimulatingWebhook(false);
+    }
+  };
 
   useEffect(() => {
     if (!selectedPatient) return;
@@ -105,6 +242,8 @@ export function CareStackChart({
     );
   }
 
+  const clearanceStatus = clearanceData?.status || clearanceData?.carestack_status || 'NONE';
+
   return (
     <div className="bg-app-surface rounded-lg border border-app-border shadow-xs overflow-hidden">
       {/* Patient Selector Bar */}
@@ -145,12 +284,216 @@ export function CareStackChart({
                 Active Patient
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-text-secondary mt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-secondary mt-1">
               <span>DOB: <strong>{selectedPatient.birth_date}</strong></span>
               <span className="text-text-muted">•</span>
               <span>MRN: <strong className="text-teal-700">{selectedPatient.mrn}</strong></span>
               <span className="text-text-muted">•</span>
               <span>CareStack ID: <strong className="text-text-main">{selectedPatient.id}</strong></span>
+
+              {/* Step 13: Live Medical Clearance Status Pill Badge & Interactive Popover */}
+              {clearanceStatus !== 'NONE' && (
+                <>
+                  <span className="text-text-muted">•</span>
+                  <div className="relative inline-block">
+                    {clearanceStatus === 'TRANSMITTED_TO_INBOX' || clearanceStatus === 'UNDER_REVIEW' ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsPopoverOpen((prev) => !prev)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse hover:bg-amber-200 transition-all cursor-pointer shadow-xs"
+                        title="Click to view digital clearance passport details"
+                      >
+                        <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <span>Clearance Requested (InBasket Dispatched)</span>
+                        <ChevronDown className="w-3 h-3 text-amber-700 opacity-70" />
+                      </button>
+                    ) : clearanceStatus === 'APPROVED' || clearanceStatus === 'APPROVED_WITH_CONDITIONS' ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsPopoverOpen((prev) => !prev)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 hover:bg-emerald-200 transition-all cursor-pointer shadow-xs"
+                        title="Click to view digital clearance passport details"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        <span>Surgically Cleared by Cardiology</span>
+                        <ChevronDown className="w-3 h-3 text-emerald-700 opacity-70" />
+                      </button>
+                    ) : clearanceStatus === 'REJECTED' ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsPopoverOpen((prev) => !prev)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-900 border border-rose-300 hover:bg-rose-200 transition-all cursor-pointer shadow-xs"
+                        title="Click to view digital clearance passport details"
+                      >
+                        <X className="w-3.5 h-3.5 text-rose-700 shrink-0" />
+                        <span>Clearance Denied — Surgery Contraindicated</span>
+                        <ChevronDown className="w-3 h-3 text-rose-700 opacity-70" />
+                      </button>
+                    ) : null}
+
+                    {/* Popover */}
+                    {isPopoverOpen && clearanceData && (
+                      <div
+                        ref={popoverRef}
+                        className="absolute left-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-slate-200 p-4 z-50 text-slate-800 animate-fade-in text-xs font-normal text-left"
+                        style={{ minWidth: '340px', maxWidth: '420px' }}
+                      >
+                        {/* Popover Header */}
+                        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                          <div className="flex items-center gap-1.5">
+                            <ShieldCheck className="w-4 h-4 text-teal-600" />
+                            <span className="font-bold text-slate-900 text-xs tracking-tight">
+                              Pre-Op Medical Clearance Passport
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsPopoverOpen(false)}
+                            className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Live Status Pill in Popover */}
+                        <div className="mt-3 mb-2.5">
+                          {clearanceStatus === 'TRANSMITTED_TO_INBOX' || clearanceStatus === 'UNDER_REVIEW' ? (
+                            <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
+                              <div className="font-bold flex items-center gap-1.5 text-xs">
+                                <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                                <span>Awaiting Physician InBasket Review</span>
+                              </div>
+                              <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
+                                Task dispatched to hospital EHR via HL7 FHIR R4 Task resource. Awaiting cardiologist sign-off.
+                              </p>
+                            </div>
+                          ) : clearanceStatus === 'APPROVED' || clearanceStatus === 'APPROVED_WITH_CONDITIONS' ? (
+                            <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900">
+                              <div className="font-bold flex items-center gap-1.5 text-xs">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Surgically Cleared by Cardiology</span>
+                              </div>
+                              <p className="text-[11px] text-emerald-800 mt-1 leading-relaxed">
+                                {clearanceData.decision?.physician_notes ||
+                                  'Cardiology clearance approved. Safe to proceed under verified hemostasis parameters.'}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900">
+                              <div className="font-bold flex items-center gap-1.5 text-xs">
+                                <X className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Surgery Contraindicated</span>
+                              </div>
+                              <p className="text-[11px] text-rose-800 mt-1 leading-relaxed">
+                                {clearanceData.decision?.physician_notes ||
+                                  'Clearance rejected by attending physician due to elevated hemodynamic or bleeding hazard.'}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Attending Physician */}
+                        <div className="space-y-1.5 py-2 border-t border-slate-100 text-[11px]">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Attending Specialist
+                          </div>
+                          <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+                            <div className="font-bold text-slate-900 text-xs">
+                              {clearanceData.physician?.name || 'Dr. Kenneth Vance, MD'}
+                            </div>
+                            <div className="text-slate-600 text-[11px] mt-0.5">
+                              {clearanceData.physician?.specialty || 'Cardiology'} · {clearanceData.physician?.facility_name || 'Metropolitan Heart Center'}
+                            </div>
+                            <div className="font-mono text-[10px] text-slate-500 mt-1">
+                              NPI: {clearanceData.physician?.npi || '1092837465'} · Direct: {clearanceData.physician?.direct_email || 'k.vance@metroheart.org'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Target Coagulation Parameters */}
+                        <div className="space-y-1.5 py-2 border-t border-slate-100 text-[11px]">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Target Coagulation Parameters
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-slate-50 p-2 rounded-lg border border-slate-200/80">
+                              <div className="text-[10px] text-slate-500 font-medium">Target INR Range</div>
+                              <div className="font-mono font-bold text-teal-800 text-xs mt-0.5">
+                                {clearanceData.decision?.coagulation_parameters?.target_inr_range || '2.0 - 2.5'}
+                              </div>
+                            </div>
+                            <div className="bg-slate-50 p-2 rounded-lg border border-slate-200/80">
+                              <div className="text-[10px] text-slate-500 font-medium">Hold Instructions</div>
+                              <div className="font-semibold text-slate-800 text-[11px] mt-0.5">
+                                {clearanceData.decision?.coagulation_parameters?.hold_medication
+                                  ? `Hold for ${clearanceData.decision.coagulation_parameters.hold_hours || 24} hours`
+                                  : 'Continue Warfarin; do not hold'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Verification & Timestamp */}
+                        <div className="py-2 border-t border-slate-100 text-[10px] text-slate-500 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-slate-400">Verification ID:</span>
+                            <span className="font-mono text-slate-700 font-semibold truncate max-w-[180px]">
+                              {clearanceData.request_id || 'CS-2001-CLEARANCE'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-slate-400">Digital Timestamp:</span>
+                            <span className="font-mono text-slate-700">
+                              {clearanceData.decision?.timestamp
+                                ? new Date(clearanceData.decision.timestamp).toLocaleString()
+                                : clearanceData.updated_at
+                                ? new Date(clearanceData.updated_at).toLocaleString()
+                                : 'Pending'}
+                            </span>
+                          </div>
+                          {clearanceData.decision?.signed_by && (
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-slate-400">Signed By:</span>
+                              <span className="text-emerald-700 font-semibold">
+                                {clearanceData.decision.signed_by}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 1-Click Simulation Button */}
+                        <div className="pt-2.5 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={handleSimulateWebhookCallback}
+                            disabled={simulatingWebhook}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                          >
+                            {simulatingWebhook ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>Simulating EHR Webhook…</span>
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                <span>Simulate Incoming EHR Webhook Callback</span>
+                              </>
+                            )}
+                          </button>
+                          {simulatedSuccess && (
+                            <div className="mt-1.5 text-[11px] text-center text-emerald-700 font-semibold flex items-center justify-center gap-1">
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span>Webhook callback received & CareStack updated!</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
               <span className="text-text-muted">•</span>
               <span className="inline-flex items-center gap-1 font-semibold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 text-[11px]">
                 <FileCheck className="w-3 h-3 text-teal-600" />

@@ -254,6 +254,7 @@ class CareStackPatient(BaseModel):
     primary_dentist: Optional[str] = None
     active_treatment_plan: List[DentalProcedure] = Field(default_factory=list)
     attached_documents: List[Dict[str, Any]] = Field(default_factory=list)
+    medical_clearance: Optional[Dict[str, Any]] = Field(default=None, description="Step 11/12 Medical Clearance status and directives")
 
 
     def to_view_model(self) -> PatientViewModel:

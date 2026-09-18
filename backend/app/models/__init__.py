@@ -40,6 +40,16 @@ from .claims import (
     CMS1500Claim,
     CrossCodingOpportunity,
 )
+from .clearance import (
+    AttendingPhysician,
+    ClearanceDecision,
+    ClearanceDecisionType,
+    ClearanceDispatchRequest,
+    ClearanceRequestPayload,
+    ClearanceStatus,
+    FHIRTaskResource,
+    FHIRCommunicationRequestResource,
+)
 
 __all__ = [
     "Coding",
@@ -74,4 +84,12 @@ __all__ = [
     "BillingProvider",
     "CMS1500Claim",
     "CrossCodingOpportunity",
+    "AttendingPhysician",
+    "ClearanceDecision",
+    "ClearanceDecisionType",
+    "ClearanceDispatchRequest",
+    "ClearanceRequestPayload",
+    "ClearanceStatus",
+    "FHIRTaskResource",
+    "FHIRCommunicationRequestResource",
 ]

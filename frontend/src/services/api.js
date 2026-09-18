@@ -143,5 +143,28 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(docPayload),
     }),
+
+  // Medical Clearance Passport & Physician Review Portal (Step 11 & 12)
+  dispatchClearance: (patientId, cdtCode = 'D7140', carestackData = null, ehrData = null) =>
+    fetchJson('/api/clearance/dispatch', {
+      method: 'POST',
+      body: JSON.stringify({
+        patient_id: patientId,
+        cdt_code: cdtCode,
+        ...(carestackData ? { carestack_data: carestackData } : {}),
+        ...(ehrData ? { ehr_data: ehrData } : {}),
+      }),
+    }),
+  getPatientClearances: (patientId) =>
+    fetchJson(`/api/clearance/patient/${encodeURIComponent(patientId)}`),
+  getClearanceById: (requestId) =>
+    fetchJson(`/api/clearance/${encodeURIComponent(requestId)}`),
+  submitClearanceDecision: (requestId, decisionPayload) =>
+    fetchJson(`/api/clearance/${encodeURIComponent(requestId)}/decision`, {
+      method: 'POST',
+      body: JSON.stringify(decisionPayload),
+    }),
+  getCareStackMedicalClearanceStatus: (patientId) =>
+    fetchJson(`/api/carestack/patients/${encodeURIComponent(patientId)}/medical-clearance-status`),
 };
 

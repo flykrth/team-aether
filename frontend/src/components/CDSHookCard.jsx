@@ -11,7 +11,11 @@ import {
   FileSpreadsheet,
   Link2,
   Sparkles,
+  Send,
+  Loader2,
+  Clock,
 } from 'lucide-react';
+import { api } from '../services/api';
 
 const INDICATOR_STYLES = {
   critical: {
@@ -77,8 +81,11 @@ function renderDetailMarkdown(detail, textColor = 'text-text-main') {
  */
 export function CDSHookCard({
   card,
+  patient,
+  procedure,
   onAppendAlert,
   onRequestConsult,
+  onClearanceDispatched,
   onViewEvidence,
   onOpenFinancialDashboard,
 }) {
@@ -86,6 +93,8 @@ export function CDSHookCard({
   const [appended, setAppended] = useState(false);
   const [requestingConsult, setRequestingConsult] = useState(false);
   const [consultRequested, setConsultRequested] = useState(false);
+  const [dispatchingClearance, setDispatchingClearance] = useState(false);
+  const [clearanceDispatched, setClearanceDispatched] = useState(false);
 
   // Determine if this is an Administrative Billing Opportunity Card (Card Type B)
   const isOpportunity =
@@ -245,6 +254,27 @@ export function CDSHookCard({
     }
   };
 
+  const isCriticalClearanceCard =
+    card.indicator === 'critical' ||
+    (card.summary && /warfarin|bleeding|anticoagulant|hemorrhage|clearance|inr/i.test(card.summary)) ||
+    (card.detail && /warfarin|hemorrhage|coagulation/i.test(card.detail));
+
+  const handleDispatchClearance = async () => {
+    if (dispatchingClearance || clearanceDispatched) return;
+    setDispatchingClearance(true);
+    try {
+      const patientId = patient?.id || patient?.mrn || 'CS-2001';
+      const cdtCode = procedure?.code || card.cdt_code || 'D7140';
+      const res = await api.dispatchClearance(patientId, cdtCode);
+      setClearanceDispatched(true);
+      onClearanceDispatched?.(res);
+    } catch (err) {
+      console.error('Failed to dispatch digital clearance passport:', err);
+    } finally {
+      setDispatchingClearance(false);
+    }
+  };
+
   return (
     <div className={`rounded-lg border p-4 mb-3 bg-app-surface shadow-xs transition-all ${style.wrapper}`}>
       <div className="flex items-start justify-between gap-3">
@@ -275,6 +305,51 @@ export function CDSHookCard({
             <span>Source: <strong className="text-text-main font-semibold">{card.source.label}</strong></span>
           </span>
           <span className="text-[10px] text-text-muted font-mono">HL7 FHIR R4 Engine</span>
+        </div>
+      )}
+
+      {/* Step 13: Dedicated Digital Clearance Passport Action Block for Critical Contradictions */}
+      {isCriticalClearanceCard && (
+        <div className="mt-3.5 pt-3 border-t border-danger/30 bg-slate-900/40 p-3 rounded-lg border border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div>
+            <div className="flex items-center gap-1.5 font-bold text-slate-100">
+              <Send className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Automated Pre-Screening Clearance Gateway</span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-0.5">
+              {clearanceDispatched
+                ? 'Passport Dispatched to Dr. Kenneth Vance (Metropolitan Heart Center) via FHIR Task'
+                : 'Bridge to Attending Cardiologist via HL7 FHIR R4 Task & CommunicationRequest'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {clearanceDispatched ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse shadow-xs">
+                <Clock className="w-3.5 h-3.5 text-amber-700" />
+                <span>Awaiting Physician Clearance</span>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleDispatchClearance}
+                disabled={dispatchingClearance}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-md transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+              >
+                {dispatchingClearance ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Transmitting FHIR Task…</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5 text-indigo-200" />
+                    <span>Dispatch Digital Clearance Passport</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
