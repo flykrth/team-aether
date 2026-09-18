@@ -1,40 +1,43 @@
 # Social Pitch Video Script (DSOLVE 2026)
 
 ### Submission Requirements:
-- **Duration**: > 30 seconds (Target: 40–50 seconds)
+- **Duration**: > 30 seconds (Target: 38–42 seconds)
 - **Language**: English
 - **Tags Required**: `@Drishti` and `@CareStack`
-- **Deadline**: Before 6:00 AM on Sept 19th
-- **Core Focus**: Clear statement of the Two-System Problem + our MDIN solution
+- **Focus**: The Three-Pillar Architecture (Clinical Safety, Financial Optimization, Schedule Efficiency)
 
 ---
 
-## 45-Second Pitch Script
+## 39-Second Pitch Script
 
-### [0:00 - 0:12] The Hook & The Problem
-> *"Did you know that in modern healthcare, dental clinics operate completely blind to hospital medical records? When a patient sits in the dental chair for an extraction, the dentist has no automated way of knowing if they're taking high-potency blood thinners or have an artificial heart valve. One forgotten question on a paper clipboard can cause fatal surgical hemorrhage or life-threatening cardiac infections."*
+### [0:00 - 0:08] The Hook & The Problem
+> *"Dental and medical systems are dangerously divided. Dentists operate blind to hospital EHRs, patients lose medical coverage, and medical clearance takes 7 days of manual phone calls."*
 
-### [0:13 - 0:28] The Solution: MDIN
-> *"Meet **MDIN**: The Medical-Dental Interoperability Node for CareStack. MDIN bridges CareStack with enterprise hospital EHRs using HL7 FHIR R4 and sub-second CDS Hooks. The moment a dentist selects a surgical extraction, scaling, or cleaning, MDIN translates hospital diagnoses, blood labs, and medications into real-time chairside clinical guidance."*
+### [0:08 - 0:22] The 3 Pillars in Action (Safety & Clearance)
+> *"Meet **MDIN for CareStack**. Watch this: selecting extraction D7140 on a Warfarin patient triggers an instant sub-second CDS safety alert. With one click, the Digital Clearance Passport dispatches straight to the cardiologist's EHR inbox—clearing surgery in five minutes instead of seven days."*
 
-### [0:29 - 0:45] Financial Cross-Coding, Impact & Callout
-> *"Plus, MDIN automates medical billing cross-coding—generating CMS-1500 claims and 837P EDI transactions to unlock medical insurance for diabetic and surgical patients. With 132 automated tests passing with 100% success rate, MDIN brings true interoperability to the dental chair. Built by Team Aether for DSOLVE 2026. Tagging @Drishti and @CareStack!"*
+### [0:22 - 0:32] Financial Cross-Coding (Pillar 2)
+> *"Next, financial cross-coding: selecting periodontal scaling for an uncontrolled diabetic triggers a green medical coverage card, auto-generating CMS-1500 claim codes, 837P EDI, and a signed Letter of Medical Necessity right inside CareStack."*
+
+### [0:32 - 0:40] Closing & Call to Action
+> *"Protecting patient safety, patient finances, and practice schedule density. Built for CareStack at DSOLVE 2026."*
 
 ---
 
-## Social Caption Template
+## Social Caption Template (Ready to Copy-Paste)
 
-```
-Did you know dental practices operate completely blind to hospital medical records? 🏥🦷
+```text
+Dental and medical software have been dangerously divided for decades—putting patients at risk of surgical hemorrhage, saddling families with out-of-pocket costs, and wasting days on faxed clearances. 🏥🦷
 
-For #DSOLVE2026, Team Aether built MDIN: The Medical-Dental Interoperability Node for @CareStack.
+For #DSOLVE2026, Team Aether built MDIN: The Medical-Dental Interoperability Node for @CareStack!
 
-Using HL7 FHIR R4 (USCDI v5), semantic ConceptMap translation, and CDS Hooks v1.0/v2.0, MDIN delivers real-time clinical decision support right to the dental chair—preventing surgical hemorrhage on anticoagulants, enforcing AHA antibiotic prophylaxis for prosthetic valves, and protecting patients during invasive procedures.
+Powered by HL7® FHIR® R4 (USCDI v5) and sub-second CDS Hooks™:
+🛡️ Pillar 1: Clinical Safety — Instant contraindication warnings (<250ms) for anticoagulants, endocarditis, and allergies.
+💵 Pillar 2: Financial Optimization — Automated CDT-to-CPT medical cross-coding, CMS-1500 claim compiler, and signed Letters of Medical Necessity.
+⚡ Pillar 3: Schedule Efficiency — 1-click Digital Clearance Passport transforming 7-day phone/fax tag into a 5-minute FHIR Task loop.
 
-Plus, MDIN automates administrative medical cross-coding—generating CMS-1500 digital forms, ANSI ASC X12N 837P EDI claims, and Letters of Medical Necessity directly inside CareStack.
+Verified with 146/146 automated tests passing (100%).
+Huge thanks to @Drishti and @CareStack for inspiring this open-standards revolution! 🚀
 
-Check out our full project and 132/132 passing test suite on GitHub!
-Huge thanks to @Drishti and @CareStack! 🚀
-
-#DSOLVE2026 #HealthTech #CareStack #FHIR #CDSHooks #Interoperability #TeamAether #MedicalDental
+#DSOLVE2026 #CareStack #DrishtiCET #HealthIT #FHIR #CDSHooks #Interoperability #DentalInnovation #OpenStandards
 ```

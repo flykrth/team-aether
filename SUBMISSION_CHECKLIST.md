@@ -37,9 +37,9 @@
 - [x] Modular, explainable software architecture adhering to clean-code principles
 - [x] Type hints, Pydantic schemas, and structured error handling across all backend endpoints
 - [x] Comprehensive automated test suite passing with **100% success rate**:
-  - **132 / 132 Tests Passing** (`pytest backend/tests/ -v`)
+  - **146 / 146 Tests Passing** (`pytest backend/tests/ -v`)
   - `test_carestack_api.py` (18 tests passing)
-  - `test_fhir_public_server.py` (8 tests passing)
+  - `test_fhir_public_server.py` (6 tests passing)
   - `test_main.py` (10 tests passing)
   - `test_mdin_e2e_full.py` (13 tests passing)
   - `test_mdin_suite.py` (13 tests passing)
@@ -47,25 +47,30 @@
   - `test_phase3_terminology.py` (13 tests passing)
   - `test_phase4_cds_hooks.py` (16 tests passing)
   - `test_step8_cross_coding.py` (17 tests passing)
-  - `test_step9_lomn.py` (13 tests passing)
+  - `test_step9_lomn.py` (15 tests passing)
+  - `test_step11_clearance.py` (11 tests passing)
+  - `test_step12_callback.py` (3 tests passing)
 - [x] Zero dead code, linting errors, or unresolved imports
 
 ---
 
 ## 4. Pitch Video & Demonstration Assets
 
-- [x] Pitch script prepared for short-form English video (`assets/pitch/PITCH_SCRIPT.md`)
-- [x] Clear articulation of the Two-System Problem and MDIN's federated interoperability solution
+- [x] Pitch script prepared for >30s English video (target runtime 38–42s) tagging `@Drishti` and `@CareStack`: (`docs/pitch_video_script.md` & `assets/pitch/PITCH_SCRIPT.md`)
+- [x] Clear articulation of the Two-System Problem and MDIN's Three-Pillar Architecture (Clinical Safety, Financial Optimization, Schedule Efficiency)
 - [x] Automated terminal demo script prepared (`assets/demo/demo_api_walkthrough.sh`)
-- [x] 3–5 minute live demo cheat sheet prepared (`assets/demo/DEMO_WALKTHROUGH.md`)
-- [x] Pitch deck slide structure prepared (`docs/pitch-deck-outline.md`)
+- [x] 3–5 minute executive presentation and live judging protocol (`docs/judging_presentation.md`)
+- [x] Live demo clickstream and clinical scenario cheat sheet (`assets/demo/DEMO_WALKTHROUGH.md`)
 
 ---
 
 ## 5. Final Presentation & Technical Defense Readiness
 
-- [x] Team ready to defend architectural decisions during the 5–10 minute technical Q&A:
-  - Explain why HL7 FHIR R4 and CDS Hooks v1.0/v2.0 were chosen over proprietary webhooks
-  - Explain the FHIR ConceptMap semantic translation engine and multi-factor risk synthesis
-  - Explain regulatory alignment: HIPAA TPO Treatment Exception (45 CFR § 164.506), 21st Century Cures Act (45 CFR Part 171), and ONC HTI-1 DSI transparency criteria
-  - Explain the administrative cross-coding engine, CMS-1500 pre-population, and ANSI ASC X12N 837P EDI compilation
+- [x] Team ready to defend architectural decisions during the technical Q&A:
+  - **Q1: HIPAA TPO Exemption**: Explain why exchanging patient health data for dental pre-op treatment is protected under 45 CFR § 164.506 without separate patient consent.
+  - **Q2: Alert Fatigue**: Explain how CDS Hooks order-select prefetch targeting invasive CDT codes avoids clinician alert burnout.
+  - **Q3: Clearance Passport Interoperability**: Explain how HL7 FHIR Task (`medical-clearance-request`) and CommunicationRequest integrate into Epic InBasket and Cerner Message Center.
+  - **Q4: Latency SLA**: Explain how in-memory ConceptMap hash maps and prefetching guarantee <250ms sub-second chairside response times.
+  - Explain ONC 21st Century Cures Act (45 CFR Part 171) information blocking prohibition.
+  - Explain ONC HTI-1 Algorithmic Transparency (FAVES principles: Fair, Appropriate, Valid, Effective, Safe).
+  - Explain administrative cross-coding, CMS-1500 compilation, and ANSI ASC X12N 837P EDI generation.

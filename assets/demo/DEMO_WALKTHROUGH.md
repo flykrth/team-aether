@@ -51,7 +51,9 @@
   >
   > *A **CRITICAL HAZARD** decision support card appears! It cites American Heart Association and ADA guidelines: do not discontinue Warfarin blindly, but verify recent INR is under 3.5 and prepare local hemostatic agents like Surgicel and tranexamic acid mouthwash.*
   >
-  > *With one click on **'Request Pre-Op INR Consult'**, CareStack automatically dispatches a lab consult request to John's primary care physician."*
+    > *With one click on **'Dispatch Digital Clearance Passport'**, CareStack automatically dispatches an HL7 FHIR Task and CommunicationRequest to John's cardiologist, Dr. Kenneth Vance at Metropolitan Heart Center!*
+    >
+    > *In Pillar 3, this transforms a 5-7 day phone-and-fax clearance cycle into a 5-minute digital workflow. Dr. Vance reviews the pre-populated clinical justification in his InBasket portal, sets target INR parameters, and signs off. CareStack receives an instant webhook callback and updates the operatory banner to green clearance!*"*
 - **Action**: On the right panel, toggle **"Show ConceptMap Translation Trace"**.
 - **Speaker**:  
   > *"On the right, we see the hospital EHR record and MDIN's **FHIR ConceptMap Semantic Translation Engine**, translating RxNorm code 855332 directly into the dental alert `ACTIVE_ANTICOAGULANT`."*
@@ -64,9 +66,9 @@
   > *"Next, Jane Smith arrives for a routine cleaning—CDT D1110. A routine cleaning sounds harmless, right?"*
 - **Action**: Click **D1110 (Adult Prophylaxis)**.
 - **Speaker**:  
-  > *"Dental scaling induces transient bacteremia across gingival margins. Because Jane has a **Prosthetic Cardiac Valve** (SNOMED: 315215002), oral bacteria entering her bloodstream can seed the artificial valve, causing subacute bacterial endocarditis—a condition with a 30% mortality rate.*
+  > *"Dental scaling induces transient bacteremia across gingival margins. Because Jane has a **Prosthetic Cardiac Valve** (SNOMED: 315215002), oral bacteria entering her bloodstream can seed the artificial valve, causing subacute bacterial endocarditis—a condition with a 30% mortality rate.
   >
-  > *MDIN's CDS Hook triggers an immediate warning: AHA guidelines mandate 2 grams of Amoxicillin 30 to 60 minutes prior to procedure. The dental assistant sees this alert and verifies premedication before the hygienist touches a scaler.*
+  > *MDIN's CDS Hook triggers an immediate warning: AHA guidelines mandate 2 grams of Amoxicillin 30 to 60 minutes prior to procedure. The dental assistant sees this alert and verifies premedication before the hygienist touches a scaler.
   >
   > *And if Jane were allergic to penicillin like John Doe, MDIN's multi-factor risk engine automatically suppresses Amoxicillin and mandates Clindamycin or Azithromycin instead."*
 
@@ -75,20 +77,20 @@
 ### Minute 3:15 – 4:15 | Patient 3: Robert Taylor (Financial Cross-Coding & Claims)
 - **Action**: Select **Robert Taylor (CS-1003)**.
 - **Speaker**:  
-  > *"Finally, Robert Taylor has Type 2 Diabetes with **HbA1c = 9.2%**. Severe hyperglycemia impairs healing and elevates dry socket risk.*
+  > *"Finally, in Pillar 2, Robert Taylor has Type 2 Diabetes with **HbA1c = 9.2%**. Severe hyperglycemia impairs healing and elevates dry socket risk.
   >
-  > *Robert needs deep periodontal scaling—CDT D4341. In typical dental offices, dental insurance caps out at $1,000, leaving Robert to pay hundreds out of pocket.*
+  > *Robert needs deep periodontal scaling—CDT D4341. In typical dental offices, dental insurance caps out at $1,000, leaving Robert to pay hundreds out of pocket.
   >
   > *Watch this: Click **'Financial Optimization'**."*
 - **Action**: Click the **Financial Optimization** button to open `FinancialOptimizationModal.jsx`.
 - **Speaker**:  
-  > *"MDIN contains an **Administrative Decision Support & Medical Cross-Coding Engine**!*
+  > *"MDIN contains an **Administrative Decision Support & Medical Cross-Coding Engine**!
   >
-  > *It detects that Robert's periodontal disease is directly linked to his systemic Type 2 Diabetes (ICD-10 E11.9). It automatically cross-codes dental CDT D4341 into **medical CPT 41874 (Alveoloplasty w/ bone contouring)**, unlocking **$600.00** in primary medical insurance coverage!*
+  > *It detects that Robert's periodontal disease is directly linked to his systemic Type 2 Diabetes (ICD-10 E11.9). It automatically cross-codes dental CDT D4341 into **medical CPT 41874 (Alveoloplasty w/ bone contouring)**, unlocking **$600.00** in primary medical insurance coverage!
   >
-  > *Here in Tab 1, MDIN automatically pre-populates an authentic **CMS-1500 Digital Claim Form** with all diagnostic pointers and NPI billing provider details.*
+  > *Here in Tab 1, MDIN automatically pre-populates an authentic **CMS-1500 Digital Claim Form** with all diagnostic pointers and NPI billing provider details.
   >
-  > *In Tab 2, MDIN auto-generates a formal **Letter of Medical Necessity (LOMN)** citing peer-reviewed ADA/AAP evidence, signed by the clinician and cryptographically sealed with a SHA-256 hash directly into CareStack's document repository!*
+  > *In Tab 2, MDIN auto-generates a formal **Letter of Medical Necessity (LOMN)** citing peer-reviewed ADA/AAP evidence, signed by the clinician and cryptographically sealed with a SHA-256 hash directly into CareStack's document repository!
   >
   > *In Tab 3, MDIN compiles the complete **ANSI ASC X12N 837P EDI** electronic claim transaction stream! With one click on **'Approve & Submit'**, the claim is transmitted with a verifiable Claim Control Number."*
 
@@ -96,13 +98,13 @@
 
 ### Minute 4:15 – 5:00 | Architecture, Regulatory Compliance & Q&A
 - **Speaker**:  
-  > *"How did we engineer this in 36 hours?*
-  > 1. *A high-performance FastAPI ASGI backend executing asynchronous HL7 FHIR R4 and CDS Hooks v1.0/v2.0 queries.*
+  > *"How did we engineer this in 36 hours?
+  > 1. *A high-performance FastAPI ASGI backend executing asynchronous HL7 FHIR R4, CDS Hooks v1.0/v2.0 queries, and FHIR CommunicationRequest/Task clearance lifecycles under 250ms.*
   > 2. *FHIR ConceptMap ($translate) bridging ICD-10, SNOMED, and RxNorm to ADA dental CDT codes.*
-  > 3. *Complete regulatory alignment: permitted under the **HIPAA TPO Treatment exception (45 CFR § 164.506)**, compliant with the **21st Century Cures Act** against Information Blocking, and 100% compliant with **ONC HTI-1 DSI transparency rules**.*
-  > 4. *An exhaustive automated test suite with **132 / 132 passing tests**.*
+  > 3. *Complete regulatory alignment: permitted under the **HIPAA TPO Treatment exception (45 CFR § 164.506)**, compliant with the **21st Century Cures Act** against Information Blocking, and 100% compliant with **ONC HTI-1 DSI / FAVES transparency rules**.*
+  > 4. *An exhaustive automated test suite with **146 / 146 passing tests** across 12 test suites.*
   >
-  > *MDIN transforms dental care from an isolated island into an integrated, patient-safe clinical and financial ecosystem. Thank you, and we welcome your questions!"*
+  > *MDIN transforms dental care from an isolated island into an integrated, patient-safe clinical, financial, and scheduling ecosystem. Thank you, and we welcome your questions!"*
 
 ---
 
