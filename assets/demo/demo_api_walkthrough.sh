@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# MDIN: Medical-Dental Interoperability Node for CareStack
+# CrossWalk: CrossWalk for CareStack
 # DSOLVE 2026 — Live API & Clinical Decision Support Demo
 # ==============================================================================
 
@@ -15,10 +15,10 @@ RED='\033[0;31m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
-API_BASE="${MDIN_API_BASE:-http://localhost:8000}"
+API_BASE="${CROSSWALK_API_BASE:-http://localhost:8000}"
 
 echo -e "${BOLD}${CYAN}===================================================================${NC}"
-echo -e "${BOLD}${CYAN}  MDIN: Medical-Dental Interoperability Node for CareStack         ${NC}"
+echo -e "${BOLD}${CYAN}  CrossWalk: CrossWalk for CareStack         ${NC}"
 echo -e "${BOLD}${CYAN}  DSOLVE 2026 Live API & Clinical Decision Support Demo           ${NC}"
 echo -e "${BOLD}${CYAN}===================================================================${NC}"
 echo -e "Target API Base: ${GREEN}${API_BASE}${NC}\n"
@@ -27,7 +27,7 @@ echo -e "Target API Base: ${GREEN}${API_BASE}${NC}\n"
 echo -e "${BOLD}${YELLOW}[1/9] Checking System Health & Interoperability Gateway...${NC}"
 HEALTH_RESP=$(curl -s "${API_BASE}/health" || true)
 if [ -z "$HEALTH_RESP" ]; then
-  echo -e "${RED}ERROR: Unable to connect to MDIN backend at ${API_BASE}.${NC}"
+  echo -e "${RED}ERROR: Unable to connect to CrossWalk backend at ${API_BASE}.${NC}"
   echo -e "Please ensure the backend is running via: ${BOLD}python backend/run.py${NC}"
   exit 1
 fi
